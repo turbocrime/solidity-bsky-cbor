@@ -30,15 +30,4 @@ library Uint64CBOR {
     using CBOR for CBOR.CBORBuffer;
     using CBORDecoder for bytes;
 
-    /// @notice serialize uint64 to cbor
-    /// @param id value to serialize
-    /// @return cbor encoded bytes
-    function serialize(uint64 id) internal pure returns (bytes memory) {
-        uint256 capacity = Misc.getPrefixSize(uint256(id));
-        CBOR.CBORBuffer memory buf = CBOR.create(capacity);
-
-        buf.writeUInt64(id);
-
-        return buf.data();
-    }
 }

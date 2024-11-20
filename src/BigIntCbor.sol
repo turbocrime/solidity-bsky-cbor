@@ -24,22 +24,6 @@ import "./CommonTypes.sol";
 /// @title This library is a set of functions meant to handle CBOR serialization and deserialization for BigInt type
 /// @author Zondax AG
 library BigIntCBOR {
-    /// @notice serialize BigInt instance to bytes
-    /// @param num BigInt instance to serialize
-    /// @return serialized BigInt as bytes
-    function serializeBigInt(CommonTypes.BigInt memory num) internal pure returns (bytes memory) {
-        bytes memory raw = new bytes(num.val.length + 1);
-
-        raw[0] = num.neg == true ? bytes1(0x01) : bytes1(0x00);
-
-        uint index = 1;
-        for (uint i = 0; i < num.val.length; i++) {
-            raw[index] = num.val[i];
-            index++;
-        }
-
-        return raw;
-    }
 
     /// @notice deserialize big int (encoded as bytes) to BigInt instance
     /// @param raw as bytes to parse

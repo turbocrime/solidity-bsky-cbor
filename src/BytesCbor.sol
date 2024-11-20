@@ -35,35 +35,6 @@ library BytesCBOR {
     using CBORDecoder for bytes;
     using BigIntCBOR for bytes;
 
-    /// @notice serialize raw bytes as cbor bytes string encoded
-    /// @param data raw data in bytes
-    /// @return encoded cbor bytes
-    function serializeBytes(bytes memory data) internal pure returns (bytes memory) {
-        uint256 capacity = Misc.getBytesSize(data);
-
-        CBOR.CBORBuffer memory buf = CBOR.create(capacity);
-
-        buf.writeBytes(data);
-
-        return buf.data();
-    }
-
-    /// @notice serialize raw address (in bytes) as cbor bytes string encoded (how an address is passed to filecoin actors)
-    /// @param addr raw address in bytes
-    /// @return encoded address as cbor bytes
-    function serializeAddress(bytes memory addr) internal pure returns (bytes memory) {
-        return serializeBytes(addr);
-    }
-
-    /// @notice encoded null value as cbor
-    /// @return cbor encoded null
-    function serializeNull() internal pure returns (bytes memory) {
-        CBOR.CBORBuffer memory buf = CBOR.create(1);
-
-        buf.writeNull();
-
-        return buf.data();
-    }
 
     /// @notice deserialize cbor encoded filecoin address to bytes
     /// @param ret cbor encoded filecoin address
