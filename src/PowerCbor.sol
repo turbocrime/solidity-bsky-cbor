@@ -19,12 +19,12 @@
 // SPDX-License-Identifier: Apache-2.0
 pragma solidity ^0.8.17;
 
-import "solidity-cborutils/contracts/CBOR.sol";
+import "solidity-cborutils/CBOR.sol";
 
-import "../types/CommonTypes.sol";
+import "./CommonTypes.sol";
 import "../types/PowerTypes.sol";
-import "../utils/CborDecode.sol";
-import "../utils/Misc.sol";
+import "./CborDecode.sol";
+import "./Misc.sol";
 import "./BigIntCbor.sol";
 
 /// @title This library is a set of functions meant to handle CBOR parameters serialization and return values deserialization for Power actor exported methods.

@@ -19,16 +19,16 @@
 // SPDX-License-Identifier: Apache-2.0
 pragma solidity ^0.8.17;
 
-import "solidity-cborutils/contracts/CBOR.sol";
+import "solidity-cborutils/CBOR.sol";
 
 import "./BigIntCbor.sol";
 import "./FilecoinCbor.sol";
 
 import "../types/MinerTypes.sol";
-import "../types/CommonTypes.sol";
+import "./CommonTypes.sol";
 
-import "../utils/CborDecode.sol";
-import "../utils/Misc.sol";
+import "./CborDecode.sol";
+import "./Misc.sol";
 
 /// @title This library is a set of functions meant to handle CBOR parameters serialization and return values deserialization for Miner actor exported methods.
 /// @author Zondax AG

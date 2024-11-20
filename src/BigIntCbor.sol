@@ -19,7 +19,7 @@
 // SPDX-License-Identifier: Apache-2.0
 pragma solidity ^0.8.17;
 
-import "../types/CommonTypes.sol";
+import "./CommonTypes.sol";
 
 /// @title This library is a set of functions meant to handle CBOR serialization and deserialization for BigInt type
 /// @author Zondax AG

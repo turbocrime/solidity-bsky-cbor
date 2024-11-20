@@ -19,15 +19,15 @@
 // SPDX-License-Identifier: Apache-2.0
 pragma solidity ^0.8.17;
 
-import "solidity-cborutils/contracts/CBOR.sol";
+import "solidity-cborutils/CBOR.sol";
 import "@ensdomains/buffer/contracts/Buffer.sol";
 
-import "../utils/CborDecode.sol";
-import "../utils/Misc.sol";
+import "./CborDecode.sol";
+import "./Misc.sol";
 
-import "../types/CommonTypes.sol";
+import "./CommonTypes.sol";
 
-import "../cbor/BigIntCbor.sol";
+import "./BigIntCbor.sol";
 
 /// @title This library is a set of functions meant to handle CBOR serialization and deserialization for general data types on the filecoin network.
 /// @author Zondax AG
