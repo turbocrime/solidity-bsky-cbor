@@ -154,4 +154,33 @@ contract CborDecodeTest {
         (num, index) = input.readUInt8(index);
         require(num == 111, "num is not 111");
     }
+
+    function test_decodeFixedMap() public pure {
+        bytes memory input = hex"A3616101616202616303";
+
+        uint index = 0;
+        uint mapLen = 0;
+        (mapLen, index) = input.readFixedMap(index);
+        require(mapLen == 3, "map len is not 2");
+
+        string memory mapKey;
+        uint8 mapValue;
+        (mapKey, index) = input.readString(index);
+        require(keccak256(abi.encodePacked(mapKey)) == keccak256(abi.encodePacked("a")), "map key is not 'a'");
+
+        (mapValue, index) = input.readUInt8(index);
+        require(mapValue == 1, "map value is not 1");
+
+        (mapKey, index) = input.readString(index);
+        require(keccak256(abi.encodePacked(mapKey)) == keccak256(abi.encodePacked("b")), "map key is not 'b'");
+
+        (mapValue, index) = input.readUInt8(index);
+        require(mapValue == 2, "map value is not 2");
+
+        (mapKey, index) = input.readString(index);
+        require(keccak256(abi.encodePacked(mapKey)) == keccak256(abi.encodePacked("c")), "map key is not 'c'");
+
+        (mapValue, index) = input.readUInt8(index);
+        require(mapValue == 3, "map value is not 3");
+    }
 }
