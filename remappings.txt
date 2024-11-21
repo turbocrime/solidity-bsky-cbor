@@ -1,5 +1,3 @@
 @ensdomains/buffer/=lib/buffer/
-ds-test/=lib/solidity-bignumber/lib/forge-std/lib/ds-test/src/
 forge-std/=lib/forge-std/src/
-solidity-bignumber/=lib/solidity-bignumber/src/
 solidity-cborutils/=lib/solidity-cborutils/contracts/
