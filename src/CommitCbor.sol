@@ -33,11 +33,11 @@ library CommitCbor {
                 (ret.version, byteIdx) = cborData.readUInt8(byteIdx);
                 require(ret.version == COMMIT_VERSION, "unexpected commit version");
             } else if (Compare.stringsMatch(mapKey, "data")) {
-                (ret.data, byteIdx) = CidCbor.readCid(cborData, byteIdx, false);
+                (ret.data, byteIdx) = CidCbor.readCid(cborData, byteIdx);
             } else if (Compare.stringsMatch(mapKey, "rev")) {
                 (ret.rev, byteIdx) = cborData.readString(byteIdx);
             } else if (Compare.stringsMatch(mapKey, "prev")) {
-                (ret.prev, byteIdx) = CidCbor.readCid(cborData, byteIdx, false);
+                (ret.prev, byteIdx) = CidCbor.readCid(cborData, byteIdx);
             }
         }
 

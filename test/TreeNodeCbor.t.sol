@@ -12,7 +12,15 @@ contract TreeNodeCborTest {
 
         (TreeNodeCbor.TreeNode memory node, uint byteIdx) = TreeNodeCbor.readTreeNode(treeNode, 0);
 
-        console.log("byteIdx: %s", byteIdx);
-        console.log("entries: %s", node.entries.length);
+        require(byteIdx == treeNode.length, "expected to read all bytes");
+        require(node.entries.length == 5, "expected 5 entries");
+
+        require(Compare.bytesMatch(abi.encodePacked(node.left.sha), hex"6e7335ed248edae3ed49d47b88a5fcad2985e15f416f8ae23a49dfc1231aeb91"), "left sha");
+        for (uint i = 0; i < node.entries.length; i++) {
+            console.log("node entry %s", i);
+            console.log(node.entries[i].key);
+            console.logBytes32(node.entries[i].value.sha);
+            console.logBytes32(node.entries[i].tree.sha);
+        }
     }
 }

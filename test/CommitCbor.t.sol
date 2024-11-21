@@ -12,9 +12,12 @@ contract CommitCborTest {
 
         (CommitCbor.Commit memory commit, uint byteIdx) = CommitCbor.readCommit(rootCommitData, 0);
 
-        console.log("byteIdx: %s", byteIdx);
-        console.log("did: %s", commit.did);
-        console.log("version: %s", commit.version);
-        console.log("rev: %s", commit.rev);
+        require(byteIdx == rootCommitData.length, "expected to read all bytes");
+        require(commit.version == 3, "expected version 3");
+        require(bytes(commit.rev).length == 13, "expected rev to be 13 bytes");
+        require(bytes(commit.did).length == 32, "expected did to be 32 bytes");
+        require(commit.data.nullish == false, "expected data cid to be non-null");
+        require(Compare.bytesMatch(abi.encodePacked(commit.data.sha), hex"66da6655bf8da79b69a87299cf170fed8497fa3059379dc4a8bfe1e28cab5d93"), "expected cid hash");
+        require(Compare.bytesMatch(abi.encodePacked(commit.data.prefix), hex"01711220"), "expected data cid prefix to be 01711220");
     }
 }

@@ -20,14 +20,6 @@
 // SPDX-License-Identifier: Apache-2.0
 pragma solidity ^0.8.17;
 
-// 	MajUnsignedInt = 0
-// 	MajSignedInt   = 1
-// 	MajByteString  = 2
-// 	MajTextString  = 3
-// 	MajArray       = 4
-// 	MajMap         = 5
-// 	MajTag         = 6
-// 	MajOther       = 7
 
 uint8 constant MajUnsignedInt = 0;
 uint8 constant MajSignedInt = 1;
@@ -37,9 +29,6 @@ uint8 constant MajArray = 4;
 uint8 constant MajMap = 5;
 uint8 constant MajTag = 6;
 uint8 constant MajOther = 7;
-
-uint8 constant TagTypeBigNum = 2;
-uint8 constant TagTypeNegativeBigNum = 3;
 
 uint8 constant True_Type = 21;
 uint8 constant False_Type = 20;
@@ -130,12 +119,7 @@ library CBORDecoder {
         uint len;
 
         (maj, len, byteIdx) = parseCborHeader(cborData, byteIdx);
-        require(maj == MajTag || maj == MajByteString, "invalid maj (expected MajTag or MajByteString)");
-
-        if (maj == MajTag) {
-            (maj, len, byteIdx) = parseCborHeader(cborData, byteIdx);
-            assert(maj == MajByteString);
-        }
+        require(maj == MajByteString, "invalid maj (expected MajByteString)");
 
         uint max_len = byteIdx + len;
         bytes memory slice = new bytes(len);
@@ -146,86 +130,6 @@ library CBORDecoder {
         }
 
         return (slice, byteIdx + len);
-    }
-
-    /// @notice attempt to read a bytes32 value
-    /// @param cborData cbor encoded bytes to parse from
-    /// @param byteIdx current position to read on the cbor encoded bytes
-    /// @return a bytes32 decoded from input bytes and the byte index after moving past the value
-    function readBytes32(bytes memory cborData, uint byteIdx) internal pure returns (bytes32, uint) {
-        uint8 maj;
-        uint len;
-
-        (maj, len, byteIdx) = parseCborHeader(cborData, byteIdx);
-        require(maj == MajByteString, "invalid maj (expected MajByteString)");
-
-        uint max_len = byteIdx + len;
-        bytes memory slice = new bytes(32);
-        uint slice_index = 32 - len;
-        for (uint256 i = byteIdx; i < max_len; i++) {
-            slice[slice_index] = cborData[i];
-            slice_index++;
-        }
-
-        return (bytes32(slice), byteIdx + len);
-    }
-
-    /// @notice attempt to read a uint256 value encoded per cbor specification
-    /// @param cborData cbor encoded bytes to parse from
-    /// @param byteIdx current position to read on the cbor encoded bytes
-    /// @return an uint256 decoded from input bytes and the byte index after moving past the value
-    function readUInt256(bytes memory cborData, uint byteIdx) internal pure returns (uint256, uint) {
-        uint8 maj;
-        uint256 value;
-
-        (maj, value, byteIdx) = parseCborHeader(cborData, byteIdx);
-        require(maj == MajTag || maj == MajUnsignedInt, "invalid maj (expected MajTag or MajUnsignedInt)");
-
-        if (maj == MajTag) {
-            require(value == TagTypeBigNum, "invalid tag (expected TagTypeBigNum)");
-
-            uint len;
-            (maj, len, byteIdx) = parseCborHeader(cborData, byteIdx);
-            require(maj == MajByteString, "invalid maj (expected MajByteString)");
-
-            require(cborData.length >= byteIdx + len, "slicing out of range");
-            assembly {
-                value := mload(add(cborData, add(len, byteIdx)))
-            }
-
-            return (value, byteIdx + len);
-        }
-
-        return (value, byteIdx);
-    }
-
-    /// @notice attempt to read a int256 value encoded per cbor specification
-    /// @param cborData cbor encoded bytes to parse from
-    /// @param byteIdx current position to read on the cbor encoded bytes
-    /// @return an int256 decoded from input bytes and the byte index after moving past the value
-    function readInt256(bytes memory cborData, uint byteIdx) internal pure returns (int256, uint) {
-        uint8 maj;
-        uint value;
-
-        (maj, value, byteIdx) = parseCborHeader(cborData, byteIdx);
-        require(maj == MajTag || maj == MajSignedInt, "invalid maj (expected MajTag or MajSignedInt)");
-
-        if (maj == MajTag) {
-            assert(value == TagTypeNegativeBigNum);
-
-            uint len;
-            (maj, len, byteIdx) = parseCborHeader(cborData, byteIdx);
-            require(maj == MajByteString, "invalid maj (expected MajByteString)");
-
-            require(cborData.length >= byteIdx + len, "slicing out of range");
-            assembly {
-                value := mload(add(cborData, add(len, byteIdx)))
-            }
-
-            return (int256(value), byteIdx + len);
-        }
-
-        return (int256(value), byteIdx);
     }
 
     /// @notice attempt to read a uint64 value
