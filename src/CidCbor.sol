@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.28;
 
-
 import "./CborDecode.sol";
 import "./Compare.sol";
 
@@ -71,7 +70,6 @@ library CidCbor {
         // cid data length plus prefix length
         require(cidBytes.length == 1 + 4 + MULTIHASH_SIZE_32, "expected cid data to be 37 bytes");
 
-        
         bytes memory sha = new bytes(32);
         for (uint i = 0; i < 32; i++) {
             sha[i] = cidBytes[5 + i];

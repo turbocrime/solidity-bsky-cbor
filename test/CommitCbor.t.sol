@@ -17,7 +17,15 @@ contract CommitCborTest {
         require(bytes(commit.rev).length == 13, "expected rev to be 13 bytes");
         require(bytes(commit.did).length == 32, "expected did to be 32 bytes");
         require(commit.data.nullish == false, "expected data cid to be non-null");
-        require(Compare.bytesMatch(abi.encodePacked(commit.data.sha), hex"66da6655bf8da79b69a87299cf170fed8497fa3059379dc4a8bfe1e28cab5d93"), "expected cid hash");
-        require(Compare.bytesMatch(abi.encodePacked(commit.data.prefix), hex"01711220"), "expected data cid prefix to be 01711220");
+        require(
+            Compare.bytesMatch(
+                abi.encodePacked(commit.data.sha), hex"66da6655bf8da79b69a87299cf170fed8497fa3059379dc4a8bfe1e28cab5d93"
+            ),
+            "expected cid hash"
+        );
+        require(
+            Compare.bytesMatch(abi.encodePacked(commit.data.prefix), hex"01711220"),
+            "expected data cid prefix to be 01711220"
+        );
     }
 }

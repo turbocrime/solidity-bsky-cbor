@@ -20,7 +20,6 @@
 // SPDX-License-Identifier: Apache-2.0
 pragma solidity ^0.8.17;
 
-
 uint8 constant MajUnsignedInt = 0;
 uint8 constant MajSignedInt = 1;
 uint8 constant MajByteString = 2;
