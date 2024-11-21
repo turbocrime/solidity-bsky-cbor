@@ -4,7 +4,7 @@ pragma solidity ^0.8.28;
 
 import "./CidCbor.sol";
 
-library TreeNodeDataCbor {
+library TreeNodeCbor {
   using CBORDecoder for bytes;
 
   struct TreeNode {
