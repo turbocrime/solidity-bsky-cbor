@@ -18,7 +18,6 @@
 // SPDX-License-Identifier: Apache-2.0
 pragma solidity ^0.8.17;
 
-import "./CommonTypes.sol";
 
 /// @title Library containing miscellaneous functions used on the project
 /// @author Zondax AG
