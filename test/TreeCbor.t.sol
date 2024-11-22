@@ -23,8 +23,6 @@ contract TreeTest is Test {
     bytes[] private nodeCbors;
     TreeCbor.Tree private tree;
 
-    TreeNodeCbor.TreeNodeE[] private e;
-
     function setUp() public {
         nodeCbors = new bytes[](4);
         nodeCbors[0] =
@@ -41,7 +39,6 @@ contract TreeTest is Test {
         require(byteIdx == rootCborWithoutSig.length, "expected to read all root commit bytes");
         rootCid = CidCbor.readCidBytes32(TreeTest.rootCborWithoutSig, rootCommit.data);
         tree = TreeCbor.readTree(nodeCbors);
-        (e,) = TreeNodeCbor.readNodeE(nodeCbors[0], 3);
     }
 
     function test_readTree_only() public view {
@@ -59,13 +56,5 @@ contract TreeTest is Test {
         console.log("node index", nodeIndex);
         console.log("node.left index", CidCbor.CidIndex.unwrap(rootNode.left));
         console.log("node.entries length", rootNode.entries.length);
-    }
-
-    function test_readNodeE_only() public view {
-        TreeNodeCbor.readNodeE(nodeCbors[0], 3);
-    }
-
-    function test_buildEntryKeys_only() public view {
-        TreeNodeCbor.buildEntryKeys(e);
     }
 }

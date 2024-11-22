@@ -96,6 +96,7 @@ library TreeNodeCbor {
                 TreeNodeE[] memory e;
                 (e, byteIdx) = readNodeE(cborData, byteIdx);
                 node.entries = buildEntryKeys(e);
+                //node.entries = dummyEntryKeys(e); // skipping rebuild saves approx 300k gas
             }
         }
         return (node, byteIdx);
