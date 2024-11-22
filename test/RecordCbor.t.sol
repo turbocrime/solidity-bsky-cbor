@@ -19,9 +19,5 @@ contract RecordCborTest {
 
         console.log("text", record.text);
         console.log("$type", record.dollarType);
-        for (uint i = 0; i < record.langs.length; i++) {
-            console.log("lang", i, record.langs[i]);
-        }
-        console.log("createdAt", record.createdAt);
     }
 }

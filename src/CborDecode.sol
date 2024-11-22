@@ -147,6 +147,14 @@ library CBORDecoder {
         return (cborData[byteIdx], byteIdx + len);
     }
 
+    function skipString(bytes memory cborData, uint byteIdx) internal pure returns (uint) {
+        uint8 maj;
+        uint len;
+        (maj, len, byteIdx) = parseCborHeader(cborData, byteIdx);
+        require(maj == MajTextString, "invalid maj (expected MajTextString)");
+        return byteIdx + len;
+    }
+
     /// @notice attempt to read an arbitrary length string value
     /// @param cborData cbor encoded bytes to parse from
     /// @param byteIdx current position to read on the cbor encoded bytes

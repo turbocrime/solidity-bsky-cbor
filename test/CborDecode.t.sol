@@ -162,22 +162,22 @@ contract CborDecodeTest {
         (mapLen, index) = input.readFixedMap(index);
         require(mapLen == 3, "map len is not 2");
 
-        string memory mapKey;
+        bytes1 mapKey;
         uint8 mapValue;
-        (mapKey, index) = input.readString(index);
-        require(keccak256(abi.encodePacked(mapKey)) == keccak256(abi.encodePacked("a")), "map key is not 'a'");
+        (mapKey, index) = input.readStringBytes1(index);
+        require(mapKey == bytes1("a"), "map key is not 'a'");
 
         (mapValue, index) = input.readUInt8(index);
         require(mapValue == 1, "map value is not 1");
 
-        (mapKey, index) = input.readString(index);
-        require(keccak256(abi.encodePacked(mapKey)) == keccak256(abi.encodePacked("b")), "map key is not 'b'");
+        (mapKey, index) = input.readStringBytes1(index);
+        require(mapKey == bytes1("b"), "map key is not 'b'");
 
         (mapValue, index) = input.readUInt8(index);
         require(mapValue == 2, "map value is not 2");
 
-        (mapKey, index) = input.readString(index);
-        require(keccak256(abi.encodePacked(mapKey)) == keccak256(abi.encodePacked("c")), "map key is not 'c'");
+        (mapKey, index) = input.readStringBytes1(index);
+        require(mapKey == bytes1("c"), "map key is not 'c'");
 
         (mapValue, index) = input.readUInt8(index);
         require(mapValue == 3, "map value is not 3");

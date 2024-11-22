@@ -7,21 +7,26 @@ import "../src/TreeCbor.sol";
 import "../src/TreeNodeCbor.sol";
 import "../src/CommitCbor.sol";
 
-contract TreeTest {
+contract TreeTest is Test {
     //bytes memory rootCborWithSig = hex"a66364696478206469643a706c633a6d74713365346d67743777796a6868616e69657a656a3637637265766d336c61796b6c746f7370323271637369675840d395a8c48c851c0ae8abe772d9fc33cac0619709ca2bcc5b60f7ff9e6ff7bf8363f68f57c10e0277403e800c5b9fd7c448f9816bf4ab878fd8148ceb24ef520b6464617461d82a5825000171122066da6655bf8da79b69a87299cf170fed8497fa3059379dc4a8bfe1e28cab5d936470726576f66776657273696f6e03";
     //bytes memory rootSig = hex"D395A8C48C851C0AE8ABE772D9FC33CAC0619709CA2BCC5B60F7FF9E6FF7BF8363F68F57C10E0277403E800C5B9FD7C448F9816BF4AB878FD8148CEB24EF520B";
-    bytes public rootCborWithoutSig =
+    bytes public constant rootCborWithoutSig =
         hex"A56364696478206469643A706C633A6D74713365346D67743777796A6868616E69657A656A3637637265766D336C61796B6C746F73703232716464617461D82A5825000171122066DA6655BF8DA79B69A87299CF170FED8497FA3059379DC4A8BFE1E28CAB5D936470726576F66776657273696F6E03";
+    bytes32 private constant correctLeftCidBytes = hex"6E7335ED248EDAE3ED49D47B88A5FCAD2985E15F416F8AE23A49DFC1231AEB91";
 
-    bytes[] public nodeCbors;
+    //bytes32 private constant recordCidBytes = hex"6d51f125727763752e073d9301892fbddaa4cc6090d5fff9af7d49106b92d457";
+    //CidCbor.CidBytes32 private constant recordIdx = CidCbor.CidBytes32.wrap(recordCidBytes);
 
-    CommitCbor.Commit public rootCommit;
-    CidCbor.CidBytes32 public rootCid;
-    TreeCbor.Tree public tree;
-    CidCbor.CidBytes32 public recordIdx;
+    CommitCbor.Commit private rootCommit;
+    CidCbor.CidBytes32 private rootCid;
+    CidCbor.CidBytes32 private wrongRootCid;
+    bytes[] private nodeCbors;
+    TreeCbor.Tree private tree;
+
+    TreeNodeCbor.TreeNodeE[] private e;
 
     function setUp() public {
-        nodeCbors = new bytes[](5);
+        nodeCbors = new bytes[](4);
         nodeCbors[0] =
             hex"a2616584a4616b58236170702e62736b792e67726170682e666f6c6c6f772f336b77767473726366736332346170006174d82a58250001711220232061c4165ce246d7f0b997b4a4212a0355faadf93fdecd64fca89db1d7bd9e6176d82a58250001711220181c3cddd15732e2a37c4455038c71ba75c1d5ca1850f78086d7bf29b490f7cba4616b487470346b797332346170181b6174d82a5825000171122096273e2ef4796b720c8e9f12292dfde8ce593a898ddd3c4c8d6d94c292736d1b6176d82a58250001711220783771b7cd8110221784049f5a1aba5ca85f660433233adb67f2045f1c05af72a4616b47773332356332346170181c6174d82a58250001711220f597936ae0b3636bcd64599dce397d33bcd1d0983af996b5ed02bdad5a6234156176d82a5825000171122009a988e6d9558a6e503e6f3194693953308be2fcbbb8831147b062b308cb291aa4616b497533366f62716332346170181a6174d82a58250001711220d5aa58f18245f4332affc4ce8fad050370013160f764027ea5897184caeb62446176d82a582500017112208e3047b78dad736d03697eedf8f49570c614c4e49cb89d86bd85d8351436e15d616cd82a58250001711220876175f10e6458ab735dbacf697d9caacec33486bc4a633be553fd43531012f5";
         nodeCbors[1] =
@@ -29,42 +34,38 @@ contract TreeTest {
         nodeCbors[2] =
             hex"a2616586a4616b58206170702e62736b792e666565642e706f73742f336c61793263706777353232766170006174f66176d82a58250001711220f12c9d56de3c2455a4588a818489b7b29125dcbf8312eee31d49082092ec80c2a4616b496475336d67616332766170176174f66176d82a582500017112206d51f125727763752e073d9301892fbddaa4cc6090d5fff9af7d49106b92d457a4616b547265706f73742f336b777736773779706173323461700e6174f66176d82a58250001711220ba7e5a8635be6208ea13c2ce09f81ab27feb6690740342a994117ad11d13f553a4616b4a793276667663666b3234617018186174d82a58250001711220bd95f96f2f1ae89f33cd79eec6ce8f7a036cda26c476f779bd602ce84219196e6176d82a58250001711220d5c48e2b88b3f26c98ffddb7d5c9d4f8e65aaa8a33c2cb43f666706f49bfdfb3a4616b4b78373678333479343232346170176174d82a58250001711220aed62b3da09961d039f3e14c1cf3648a44fb77a94653224d0045fe07d1f3052c6176d82a58250001711220659d834ba9a882e5af0a8e5aceb5573f1a139e5e0f14c809f3206f833c80eca8a4616b581a67726170682e666f6c6c6f772f336b7776746a773564703232346170096174d82a58250001711220793ff8bce08a2771b092f6e37b8ca895741e8e6726558a0325e380390a74259a6176d82a58250001711220834ebbe3926bd86293e298a8c86ba65cd569431403810336626268290cad43f2616cf6";
         nodeCbors[3] =
-            hex"a4647465787478196361722066696c65732063616e6e6f74206875727420796f75652474797065726170702e62736b792e666565642e706f7374656c616e67738162656e696372656174656441747818323032342d31312d31355431323a31303a33322e3031345a";
-        nodeCbors[4] =
             hex"a2616585a4616b58236170702e62736b792e67726170682e666f6c6c6f772f336b77767534737665647332346170006174d82a58250001711220b000383f1466f65b0a02da763f46cf0e4510d832f6c609a9df56db73b81259376176d82a582500017112205cd7382608fb47afda979840cf0024b3d2d2e9e43448713909e998b6a1849490a4616b486679656a776332346170181b6174d82a58250001711220b295211bc0bfc8a6c8404f4877e96c37b25272c85e4942a29b178d26803f13996176d82a5825000171122017428f68c9c19f59b08b4b2d71ce96e04cdaf6139b94baf0a2c5ee51aa74493fa4616b486d77686f6e3232346170181b6174d82a58250001711220752be9d63155323fc5ce8753bdb5832fc7f5ad762c4e37944a6de84bbb9516876176d82a582500017112200fe8a27c597fcc6059888660b321e473bdaa94b45d0a702f3bd05e013ff17564a4616b486e337667376332346170181b6174d82a58250001711220ff7f6bd81b38a383101aec250c290ec6cd33555baf1e644f4b6d9b60a2e1fb856176d82a58250001711220a9f192fea504ecf8ae900d2a4f9f37551865132ae50bf680ac1687636afee7e1a4616b486f797875373232346170181b6174d82a582500017112204afcab072750efa8755714ca8477b35e871b71856a329c9973c4b94b7a4c98986176d82a58250001711220c46c805c774dcd3eaf4f90cef5e63f1f2a53f9c6bdb14b7397e736678b54dc97616cd82a582500017112206e7335ed248edae3ed49d47b88a5fcad2985e15f416f8ae23a49dfc1231aeb91";
 
         uint byteIdx;
         (rootCommit, byteIdx) = CommitCbor.readCommit(TreeTest.rootCborWithoutSig, 0);
         require(byteIdx == rootCborWithoutSig.length, "expected to read all root commit bytes");
         rootCid = CidCbor.readCidBytes32(TreeTest.rootCborWithoutSig, rootCommit.data);
-        tree = TreeCbor.readTree(nodeCbors, rootCid);
-        recordIdx = CidCbor.CidBytes32.wrap(hex"6d51f125727763752e073d9301892fbddaa4cc6090d5fff9af7d49106b92d457");
+        tree = TreeCbor.readTree(nodeCbors);
+        (e,) = TreeNodeCbor.readNodeE(nodeCbors[0], 3);
     }
 
     function test_readTree_only() public view {
-        TreeCbor.readTree(nodeCbors, rootCid);
+        TreeCbor.readTree(nodeCbors);
     }
 
-    function test_nodeByCid_only() public view {
-        TreeCbor.nodeByCid(tree, rootCid);
+    function test_getCid_only() public view {
+        TreeCbor.getCid(tree, rootCid);
     }
 
-    function test_nodeByCid_valid() public view {
-        (TreeNodeCbor.TreeNode memory rootNode, uint nodeIndex) = TreeCbor.nodeByCid(tree, rootCid);
-        console.log("root index", nodeIndex);
-        console.log("root left index", CidCbor.CidIndex.unwrap(rootNode.left));
-        console.log("root entries", rootNode.entries.length);
+    function test_getCid_valid() public view {
+        (TreeNodeCbor.TreeNode memory rootNode, uint nodeIndex) = TreeCbor.getCid(tree, rootCid);
+        CidCbor.CidBytes32 leftCid = CidCbor.readCidBytes32(nodeCbors[nodeIndex], rootNode.left);
+        require(CidCbor.CidBytes32.unwrap(leftCid) == correctLeftCidBytes, "left cid incorrect");
+        console.log("node index", nodeIndex);
+        console.log("node.left index", CidCbor.CidIndex.unwrap(rootNode.left));
+        console.log("node.entries length", rootNode.entries.length);
     }
 
-    function test_recordByCid_only() public view {
-        TreeCbor.recordByCid(tree, recordIdx);
+    function test_readNodeE_only() public view {
+        TreeNodeCbor.readNodeE(nodeCbors[0], 3);
     }
 
-    function test_recordByCid_valid() public view {
-        (RecordCbor.Record memory record, uint recordIndex) = TreeCbor.recordByCid(tree, recordIdx);
-        console.log("record index", recordIndex);
-        console.log("record text", record.text);
-        console.log("record langs", record.langs.length);
-        console.log("record createdAt", record.createdAt);
+    function test_buildEntryKeys_only() public view {
+        TreeNodeCbor.buildEntryKeys(e);
     }
 }
