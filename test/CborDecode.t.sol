@@ -30,7 +30,6 @@ contract CborDecodeTest {
     using CBORDecoder for bytes;
 
     function test_decodeFixedArray() public pure {
-        // [1,2,3,4,5,6,7,8,9,10,"test", h'01010101', false, null, true]
         bytes memory input = hex"8F0102030405060708090A64746573744401010101F4F6F5";
         uint index = 0;
         uint arrayLen = 0;

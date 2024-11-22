@@ -29,8 +29,9 @@ uint8 constant MajMap = 5;
 uint8 constant MajTag = 6;
 uint8 constant MajOther = 7;
 
-uint8 constant True_Type = 21;
 uint8 constant False_Type = 20;
+uint8 constant True_Type = 21;
+uint8 constant Null_Type = 22;
 
 /// @notice This library is a set a functions that allows anyone to decode cbor encoded bytes
 /// @dev methods in this library try to read the data type indicated from cbor encoded data stored in bytes at a specific index
@@ -41,7 +42,7 @@ library CBORDecoder {
     /// @param cborData cbor encoded bytes to parse from
     /// @param byteIdx current position to read on the cbor encoded bytes
     function isNullNext(bytes memory cborData, uint byteIdx) internal pure returns (bool) {
-        return cborData[byteIdx] == hex"f6";
+        return cborData[byteIdx] == hex"f6"; // MajSimple 0xe0 & Null_Type 0x16 == 0xf6
     }
 
     /// @notice attempt to read a bool value

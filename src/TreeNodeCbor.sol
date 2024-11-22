@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.28;
 
+import {console} from "forge-std/Test.sol";
 import "./CidCbor.sol";
 import "./Compare.sol";
 
@@ -8,21 +9,21 @@ library TreeNodeCbor {
     using CBORDecoder for bytes;
 
     struct TreeNode {
-        CidCbor.Cid left;
+        CidCbor.CidIndex left;
         TreeNodeEntry[] entries;
     }
 
     struct TreeNodeEntry {
         string key;
-        CidCbor.Cid value;
-        CidCbor.Cid tree;
+        CidCbor.CidIndex value;
+        CidCbor.CidIndex tree;
     }
 
     struct TreeNodeE {
         uint8 p; // prefixlen
         bytes k; // keysuffix
-        CidCbor.Cid v; // value
-        CidCbor.Cid t; // tree
+        CidCbor.CidIndex v; // value
+        CidCbor.CidIndex t; // tree
     }
 
     function readNodeE(bytes memory cborData, uint byteIdx) internal pure returns (TreeNodeE[] memory ret, uint) {
@@ -45,8 +46,8 @@ library TreeNodeCbor {
 
         uint8 p;
         bytes memory k;
-        CidCbor.Cid memory v;
-        CidCbor.Cid memory t;
+        CidCbor.CidIndex v;
+        CidCbor.CidIndex t;
 
         for (uint i = 0; i < mapLen; i++) {
             string memory mapKey;
@@ -56,9 +57,11 @@ library TreeNodeCbor {
             } else if (Compare.stringsMatch(mapKey, "k")) {
                 (k, byteIdx) = cborData.readBytes(byteIdx);
             } else if (Compare.stringsMatch(mapKey, "t")) {
-                (t, byteIdx) = CidCbor.readCid(cborData, byteIdx);
+                console.log("t");
+                (t, byteIdx) = CidCbor.readNullableCidIndex(cborData, byteIdx);
             } else if (Compare.stringsMatch(mapKey, "v")) {
-                (v, byteIdx) = CidCbor.readCid(cborData, byteIdx);
+                console.log("v");
+                (v, byteIdx) = CidCbor.readNullableCidIndex(cborData, byteIdx);
             }
         }
 
@@ -92,7 +95,8 @@ library TreeNodeCbor {
             string memory mapKey;
             (mapKey, byteIdx) = cborData.readString(byteIdx);
             if (Compare.stringsMatch(mapKey, "l")) {
-                (node.left, byteIdx) = CidCbor.readCid(cborData, byteIdx);
+                console.log("l");
+                (node.left, byteIdx) = CidCbor.readNullableCidIndex(cborData, byteIdx);
             } else if (Compare.stringsMatch(mapKey, "e")) {
                 TreeNodeE[] memory e;
                 (e, byteIdx) = readNodeE(cborData, byteIdx);

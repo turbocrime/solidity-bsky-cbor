@@ -15,10 +15,10 @@ library TreeCbor {
     uint8 private constant MULTIHASH_SIZE_32 = 0x20;
 
     struct Tree {
-        CidCbor.Cid root;
+        CidCbor.CidBytes32 root;
         TreeNodeCbor.TreeNode[] nodes;
         RecordCbor.Record[] records;
-        CidCbor.Cid[] cids;
+        CidCbor.CidBytes32[] cids;
         bool[] nodeOrRecord;
     }
 
@@ -30,18 +30,14 @@ library TreeCbor {
         return len == 2;
     }
 
-    function readTree(bytes[] memory cborData, CidCbor.Cid memory root) internal pure returns (Tree memory) {
+    function readTree(bytes[] memory cborData, CidCbor.CidBytes32 root) internal pure returns (Tree memory) {
         TreeNodeCbor.TreeNode[] memory nodes = new TreeNodeCbor.TreeNode[](cborData.length);
         RecordCbor.Record[] memory records = new RecordCbor.Record[](cborData.length);
-        CidCbor.Cid[] memory cids = new CidCbor.Cid[](cborData.length);
+        CidCbor.CidBytes32[] memory cids = new CidCbor.CidBytes32[](cborData.length);
         bool[] memory nodeOrRecord = new bool[](cborData.length);
 
         for (uint i = 0; i < cborData.length; i++) {
-            cids[i] = CidCbor.Cid(
-                bytes4(abi.encodePacked(CID_V1, MULTICODEC_DAG_CBOR, MULTIHASH_SHA_256, MULTIHASH_SIZE_32)),
-                sha256(cborData[i]),
-                false
-            );
+            cids[i] = CidCbor.CidBytes32.wrap(sha256(cborData[i]));
             uint byteIdx;
             if (itemIsNode(cborData[i])) {
                 (nodes[i], byteIdx) = TreeNodeCbor.readTreeNode(cborData[i], 0);
@@ -56,7 +52,7 @@ library TreeCbor {
         return requireUniqueCidsAndRoot(Tree(root, nodes, records, cids, nodeOrRecord));
     }
 
-    function nodeByCid(Tree memory tree, CidCbor.Cid memory indexCid)
+    function nodeByCid(Tree memory tree, CidCbor.CidBytes32 indexCid)
         internal
         pure
         returns (TreeNodeCbor.TreeNode memory, uint index)
@@ -64,13 +60,14 @@ library TreeCbor {
         return nodeByCid(tree, indexCid, 0);
     }
 
-    function nodeByCid(Tree memory tree, CidCbor.Cid memory indexCid, uint startIdx)
+    function nodeByCid(Tree memory tree, CidCbor.CidBytes32 indexCid, uint startIdx)
         internal
         pure
         returns (TreeNodeCbor.TreeNode memory, uint index)
     {
+        bytes32 indexBytes = CidCbor.CidBytes32.unwrap(indexCid);
         for (uint i = startIdx; i < tree.cids.length; i++) {
-            if (CidCbor.cidMatches(tree.cids[i], indexCid)) {
+            if (CidCbor.CidBytes32.unwrap(tree.cids[i]) == indexBytes) {
                 require(tree.nodeOrRecord[i], "expected node");
                 return (tree.nodes[i], i);
             }
@@ -78,7 +75,7 @@ library TreeCbor {
         revert("node not found");
     }
 
-    function recordByCid(Tree memory tree, CidCbor.Cid memory indexCid)
+    function recordByCid(Tree memory tree, CidCbor.CidBytes32 indexCid)
         internal
         pure
         returns (RecordCbor.Record memory, uint index)
@@ -86,13 +83,15 @@ library TreeCbor {
         return recordByCid(tree, indexCid, 0);
     }
 
-    function recordByCid(Tree memory tree, CidCbor.Cid memory indexCid, uint startIdx)
+    function recordByCid(Tree memory tree, CidCbor.CidBytes32 indexCid, uint startIdx)
         internal
         pure
         returns (RecordCbor.Record memory, uint index)
     {
+        bytes32 indexBytes = CidCbor.CidBytes32.unwrap(indexCid);
+
         for (uint i = startIdx; i < tree.cids.length; i++) {
-            if (CidCbor.cidMatches(tree.cids[i], indexCid)) {
+            if (CidCbor.CidBytes32.unwrap(tree.cids[i]) == indexBytes) {
                 require(!tree.nodeOrRecord[i], "expected record");
                 return (tree.records[i], i);
             }
@@ -102,12 +101,15 @@ library TreeCbor {
 
     function requireUniqueCidsAndRoot(Tree memory tree) internal pure returns (Tree memory) {
         bool rootIncluded;
+        bytes32 treeRoot = CidCbor.CidBytes32.unwrap(tree.root);
         for (uint i = 0; i < tree.cids.length; i++) {
+            bytes32 thisCid = CidCbor.CidBytes32.unwrap(tree.cids[i]);
             if (!rootIncluded) {
-                rootIncluded = CidCbor.cidMatches(tree.cids[i], tree.root);
+                rootIncluded = thisCid == treeRoot;
             }
             for (uint j = i + 1; j < tree.nodes.length; j++) {
-                require(!CidCbor.cidMatches(tree.cids[i], tree.cids[j]), "node cids must be unique");
+                bytes32 otherCid = CidCbor.CidBytes32.unwrap(tree.cids[j]);
+                require(thisCid != otherCid, "node cids must be unique");
             }
         }
         require(rootIncluded, "root cid must be included");

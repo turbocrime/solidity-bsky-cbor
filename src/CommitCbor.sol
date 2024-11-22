@@ -12,9 +12,9 @@ library CommitCbor {
     struct Commit {
         string did;
         uint8 version;
-        CidCbor.Cid data;
+        CidCbor.CidIndex data;
         string rev;
-        CidCbor.Cid prev;
+        CidCbor.CidIndex prev;
     }
 
     function readCommit(bytes memory cborData, uint byteIdx) internal pure returns (Commit memory ret, uint) {
@@ -33,11 +33,13 @@ library CommitCbor {
                 (ret.version, byteIdx) = cborData.readUInt8(byteIdx);
                 require(ret.version == COMMIT_VERSION, "unexpected commit version");
             } else if (Compare.stringsMatch(mapKey, "data")) {
-                (ret.data, byteIdx) = CidCbor.readCid(cborData, byteIdx);
+                console.log("data", byteIdx);
+                (ret.data, byteIdx) = CidCbor.readCidIndex(cborData, byteIdx);
             } else if (Compare.stringsMatch(mapKey, "rev")) {
                 (ret.rev, byteIdx) = cborData.readString(byteIdx);
             } else if (Compare.stringsMatch(mapKey, "prev")) {
-                (ret.prev, byteIdx) = CidCbor.readCid(cborData, byteIdx);
+                console.log("prev", byteIdx);
+                (ret.prev, byteIdx) = CidCbor.readNullableCidIndex(cborData, byteIdx);
             }
         }
 

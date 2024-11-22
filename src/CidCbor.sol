@@ -1,14 +1,18 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.28;
 
+import {console} from "forge-std/Test.sol";
 import "./CborDecode.sol";
 import "./Compare.sol";
 
 library CidCbor {
     using CBORDecoder for bytes;
 
+    uint8 private constant MAJOR_BYTE_STRING = 2;
     uint8 private constant MAJOR_TYPE_TAG = 6;
     uint8 private constant TAG_CID = 42;
+
+    uint8 private constant EXPECTED_CID_LENGTH = 37;
 
     uint8 private constant MULTIBASE_FORMAT = 0x00;
     uint8 private constant CID_V1 = 0x01;
@@ -16,65 +20,66 @@ library CidCbor {
     uint8 private constant MULTIHASH_SHA_256 = 0x12;
     uint8 private constant MULTIHASH_SIZE_32 = 0x20;
 
-    struct Cid {
-        bytes4 prefix;
-        bytes32 sha;
-        bool nullish;
-    }
+    /**
+     * will only encounter Cid v1 dag-cbor sha256, so we can refer to cid within
+     * a larger bytestring by index of its sha256 hash segment. the caller is
+     * responsible for indexing the correct bytestring when retrieving the hash.
+     * due to cbor and cid formats, the hash segment will never index at 0, so
+     * so 0 is used to indicate a null value.
+     */
+    type CidIndex is uint;
 
-    function cidMatches(Cid memory one, Cid memory other) internal pure returns (bool) {
-        require(!(one.nullish && other.nullish), "two nullish cids should not be compared");
-        return Compare.bytesMatch(
-            abi.encodePacked(one.prefix, one.sha, one.nullish), abi.encodePacked(other.prefix, other.sha, other.nullish)
-        );
-    }
+    /**
+     * we will only encounter Cid v1 dag-cbor sha256, so the hash is bytes32
+     */
+    type CidBytes32 is bytes32;
 
     function expectCidTag(bytes memory cborData, uint byteIdx) internal pure returns (uint) {
+        console.log("expectCidTag", byteIdx);
         uint8 maj;
         uint value;
         (maj, value, byteIdx) = cborData.parseCborHeader(byteIdx);
-        require(maj == MAJOR_TYPE_TAG, "expected major type tag");
-        require(value == TAG_CID, "expected tag for CID");
+        require(maj == MAJOR_TYPE_TAG, "expected tag major");
+        require(value == TAG_CID, "expected tag 42 for CID");
         return byteIdx;
     }
 
-    function readCid(bytes memory cborData, uint byteIdx) internal pure returns (Cid memory, uint) {
-        bool nullish = false;
-
-        if (cborData.isNullNext(byteIdx)) {
-            nullish = true;
-            return (Cid(bytes4(0), bytes32(0), nullish), byteIdx + 1);
+    function readCidBytes32(bytes memory cborData, CidIndex idx) internal pure returns (CidBytes32) {
+        uint cidIdx = CidIndex.unwrap(idx);
+        require(cidIdx != 0, "Can't read a CID hash at index 0");
+        bytes memory cidBytes = new bytes(MULTIHASH_SIZE_32);
+        for (uint i = 0; i < MULTIHASH_SIZE_32; i++) {
+            cidBytes[i] = cborData[cidIdx + i];
         }
+        return CidBytes32.wrap(bytes32(cidBytes));
+    }
 
-        (byteIdx) = CidCbor.expectCidTag(cborData, byteIdx);
-
+    function readNullableCidIndex(bytes memory cborData, uint byteIdx) internal pure returns (CidIndex, uint) {
+        console.log("readNullableCid", byteIdx);
         if (cborData.isNullNext(byteIdx)) {
-            nullish = true;
-            return (Cid(bytes4(0), bytes32(0), nullish), byteIdx + 1);
+            console.log("nullish %s, advancing %s + 1", uint8(cborData[byteIdx]), byteIdx);
+            return (CidIndex.wrap(0), byteIdx + 1);
         }
+        console.log("not nullish %s, not advancing %s", uint8(cborData[byteIdx]), byteIdx);
 
-        bytes memory cidBytes;
-        (cidBytes, byteIdx) = cborData.readBytes(byteIdx);
+        return readCidIndex(cborData, byteIdx);
+    }
+
+    function readCidIndex(bytes memory cborData, uint byteIdx) internal pure returns (CidIndex, uint) {
+        (byteIdx) = expectCidTag(cborData, byteIdx);
+        (uint8 maj, uint len, uint bytesStart) = cborData.parseCborHeader(byteIdx);
+
+        require(maj == MAJOR_BYTE_STRING, "expected byte string");
+        require(len == EXPECTED_CID_LENGTH, "expected bytes length 37 for CID");
 
         // multibase format
-        require(uint8(cidBytes[0]) == MULTIBASE_FORMAT, "expected multibase item");
+        require(uint8(cborData[bytesStart]) == MULTIBASE_FORMAT, "expected multibase item");
+        // cid format
+        require(uint8(cborData[bytesStart + 1]) == CID_V1, "expected CID v1");
+        require(uint8(cborData[bytesStart + 2]) == MULTICODEC_DAG_CBOR, "expected CID multicodec DAG-CBOR");
+        require(uint8(cborData[bytesStart + 3]) == MULTIHASH_SHA_256, "expected CID multihash sha-256");
+        require(uint8(cborData[bytesStart + 4]) == MULTIHASH_SIZE_32, "expected CID content size 32 bytes");
 
-        // cid prefix
-        require(uint8(cidBytes[1]) == CID_V1, "expected CID v1");
-        require(uint8(cidBytes[2]) == MULTICODEC_DAG_CBOR, "expected CID multicodec DAG-CBOR");
-        require(uint8(cidBytes[3]) == MULTIHASH_SHA_256, "expected CID multihash sha-256");
-        require(uint8(cidBytes[4]) == MULTIHASH_SIZE_32, "expected CID content size 32 bytes");
-
-        bytes4 prefix = bytes4(abi.encodePacked(cidBytes[1], cidBytes[2], cidBytes[3], cidBytes[4]));
-
-        // cid data length plus prefix length
-        require(cidBytes.length == 1 + 4 + MULTIHASH_SIZE_32, "expected cid data to be 37 bytes");
-
-        bytes memory sha = new bytes(32);
-        for (uint i = 0; i < 32; i++) {
-            sha[i] = cidBytes[5 + i];
-        }
-
-        return (Cid(prefix, bytes32(sha), nullish), byteIdx);
+        return (CidIndex.wrap(bytesStart + 5), bytesStart + len);
     }
 }
