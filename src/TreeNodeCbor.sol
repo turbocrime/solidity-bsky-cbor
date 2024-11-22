@@ -1,9 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.28;
 
-import {console} from "forge-std/Test.sol";
 import "./CidCbor.sol";
-import "./Compare.sol";
 
 library TreeNodeCbor {
     using CBORDecoder for bytes;
@@ -50,17 +48,15 @@ library TreeNodeCbor {
         CidCbor.CidIndex t;
 
         for (uint i = 0; i < mapLen; i++) {
-            string memory mapKey;
-            (mapKey, byteIdx) = cborData.readString(byteIdx);
-            if (Compare.stringsMatch(mapKey, "p")) {
+            bytes1 mapKey;
+            (mapKey, byteIdx) = cborData.readStringBytes1(byteIdx);
+            if (mapKey == "p") {
                 (p, byteIdx) = cborData.readUInt8(byteIdx);
-            } else if (Compare.stringsMatch(mapKey, "k")) {
+            } else if (mapKey == "k") {
                 (k, byteIdx) = cborData.readBytes(byteIdx);
-            } else if (Compare.stringsMatch(mapKey, "t")) {
-                console.log("t");
+            } else if (mapKey == "t") {
                 (t, byteIdx) = CidCbor.readNullableCidIndex(cborData, byteIdx);
-            } else if (Compare.stringsMatch(mapKey, "v")) {
-                console.log("v");
+            } else if (mapKey == "v") {
                 (v, byteIdx) = CidCbor.readNullableCidIndex(cborData, byteIdx);
             }
         }
@@ -92,12 +88,11 @@ library TreeNodeCbor {
         (mapLen, byteIdx) = cborData.readFixedMap(byteIdx);
         require(mapLen == 2, "expected 2 fields in node");
         for (uint i = 0; i < mapLen; i++) {
-            string memory mapKey;
-            (mapKey, byteIdx) = cborData.readString(byteIdx);
-            if (Compare.stringsMatch(mapKey, "l")) {
-                console.log("l");
+            bytes1 mapKey;
+            (mapKey, byteIdx) = cborData.readStringBytes1(byteIdx);
+            if (mapKey == "l") {
                 (node.left, byteIdx) = CidCbor.readNullableCidIndex(cborData, byteIdx);
-            } else if (Compare.stringsMatch(mapKey, "e")) {
+            } else if (mapKey == "e") {
                 TreeNodeE[] memory e;
                 (e, byteIdx) = readNodeE(cborData, byteIdx);
                 node.entries = buildEntryKeys(e);

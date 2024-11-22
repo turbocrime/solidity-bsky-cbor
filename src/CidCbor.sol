@@ -1,9 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.28;
 
-import {console} from "forge-std/Test.sol";
 import "./CborDecode.sol";
-import "./Compare.sol";
 
 library CidCbor {
     using CBORDecoder for bytes;
@@ -35,7 +33,6 @@ library CidCbor {
     type CidBytes32 is bytes32;
 
     function expectCidTag(bytes memory cborData, uint byteIdx) internal pure returns (uint) {
-        console.log("expectCidTag", byteIdx);
         uint8 maj;
         uint value;
         (maj, value, byteIdx) = cborData.parseCborHeader(byteIdx);
@@ -55,12 +52,9 @@ library CidCbor {
     }
 
     function readNullableCidIndex(bytes memory cborData, uint byteIdx) internal pure returns (CidIndex, uint) {
-        console.log("readNullableCid", byteIdx);
         if (cborData.isNullNext(byteIdx)) {
-            console.log("nullish %s, advancing %s + 1", uint8(cborData[byteIdx]), byteIdx);
             return (CidIndex.wrap(0), byteIdx + 1);
         }
-        console.log("not nullish %s, not advancing %s", uint8(cborData[byteIdx]), byteIdx);
 
         return readCidIndex(cborData, byteIdx);
     }

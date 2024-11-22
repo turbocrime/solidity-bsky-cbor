@@ -110,6 +110,89 @@ library CBORDecoder {
         return (string(slice), byteIdx + len);
     }
 
+    /// @notice attempt to read an arbitrary length string value
+    /// @param cborData cbor encoded bytes to parse from
+    /// @param byteIdx current position to read on the cbor encoded bytes
+    /// @return arbitrary length string decoded from input bytes and the byte index after moving past the value
+    function readStringBytes(bytes memory cborData, uint byteIdx) internal pure returns (bytes memory, uint) {
+        uint8 maj;
+        uint len;
+
+        (maj, len, byteIdx) = parseCborHeader(cborData, byteIdx);
+        require(maj == MajTextString, "invalid maj (expected MajTextString)");
+
+        uint max_len = byteIdx + len;
+        bytes memory slice = new bytes(len);
+        uint slice_index = 0;
+        for (uint256 i = byteIdx; i < max_len; i++) {
+            slice[slice_index] = cborData[i];
+            slice_index++;
+        }
+
+        return (slice, byteIdx + len);
+    }
+
+    /// @notice attempt to read an arbitrary length string value
+    /// @param cborData cbor encoded bytes to parse from
+    /// @param byteIdx current position to read on the cbor encoded bytes
+    /// @return arbitrary length string decoded from input bytes and the byte index after moving past the value
+    function readStringBytes1(bytes memory cborData, uint byteIdx) internal pure returns (bytes1, uint) {
+        uint8 maj;
+        uint len;
+
+        (maj, len, byteIdx) = parseCborHeader(cborData, byteIdx);
+        require(maj == MajTextString, "invalid maj (expected MajTextString)");
+        require(len == 1, "expected string length of 1");
+
+        return (cborData[byteIdx], byteIdx + len);
+    }
+
+    /// @notice attempt to read an arbitrary length string value
+    /// @param cborData cbor encoded bytes to parse from
+    /// @param byteIdx current position to read on the cbor encoded bytes
+    /// @return arbitrary length string decoded from input bytes and the byte index after moving past the value
+    function readStringBytes8(bytes memory cborData, uint byteIdx) internal pure returns (bytes8, uint) {
+        uint8 maj;
+        uint len;
+
+        (maj, len, byteIdx) = parseCborHeader(cborData, byteIdx);
+        require(maj == MajTextString, "invalid maj (expected MajTextString)");
+        require(len <= 8, "expected string length of 8 or less");
+
+        uint max_len = byteIdx + len;
+        bytes memory slice = new bytes(len);
+        uint slice_index = 0;
+        for (uint256 i = byteIdx; i < max_len; i++) {
+            slice[slice_index] = cborData[i];
+            slice_index++;
+        }
+
+        return (bytes8(slice), byteIdx + len);
+    }
+
+    /// @notice attempt to read an arbitrary length string value
+    /// @param cborData cbor encoded bytes to parse from
+    /// @param byteIdx current position to read on the cbor encoded bytes
+    /// @return arbitrary length string decoded from input bytes and the byte index after moving past the value
+    function readStringBytes10(bytes memory cborData, uint byteIdx) internal pure returns (bytes10, uint) {
+        uint8 maj;
+        uint len;
+
+        (maj, len, byteIdx) = parseCborHeader(cborData, byteIdx);
+        require(maj == MajTextString, "invalid maj (expected MajTextString)");
+        require(len <= 10, "expected string length of 10 or less");
+
+        uint max_len = byteIdx + len;
+        bytes memory slice = new bytes(len);
+        uint slice_index = 0;
+        for (uint256 i = byteIdx; i < max_len; i++) {
+            slice[slice_index] = cborData[i];
+            slice_index++;
+        }
+
+        return (bytes10(slice), byteIdx + len);
+    }
+
     /// @notice attempt to read an arbitrary byte string value
     /// @param cborData cbor encoded bytes to parse from
     /// @param byteIdx current position to read on the cbor encoded bytes

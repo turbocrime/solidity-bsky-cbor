@@ -2,7 +2,6 @@
 pragma solidity ^0.8.28;
 
 import "./CidCbor.sol";
-import "./Compare.sol";
 
 library RecordCbor {
     using CBORDecoder for bytes;
@@ -26,21 +25,23 @@ library RecordCbor {
         string memory createdAt;
 
         for (uint i = 0; i < mapLen; i++) {
-            string memory mapKey;
-            (mapKey, byteIdx) = cborData.readString(byteIdx);
-            if (Compare.stringsMatch(mapKey, "text")) {
+            bytes10 mapKey;
+            (mapKey, byteIdx) = cborData.readStringBytes10(byteIdx);
+            if (mapKey == "text") {
                 (text, byteIdx) = cborData.readString(byteIdx);
-            } else if (Compare.stringsMatch(mapKey, "$type")) {
+            } else if (mapKey == "$type") {
                 (dollarType, byteIdx) = cborData.readString(byteIdx);
-            } else if (Compare.stringsMatch(mapKey, "langs")) {
+            } else if (mapKey == "langs") {
                 uint arrayLength;
                 (arrayLength, byteIdx) = cborData.readFixedArray(byteIdx);
                 langs = new string[](arrayLength);
                 for (uint j = 0; j < arrayLength; j++) {
                     (langs[j], byteIdx) = cborData.readString(byteIdx);
                 }
-            } else if (Compare.stringsMatch(mapKey, "createdAt")) {
+            } else if (mapKey == "createdAt") {
                 (createdAt, byteIdx) = cborData.readString(byteIdx);
+            } else {
+                revert("unexpected record key");
             }
         }
 
