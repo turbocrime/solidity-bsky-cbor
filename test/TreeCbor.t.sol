@@ -17,6 +17,8 @@ contract TreeTest {
 
     CommitCbor.Commit public rootCommit;
     CidCbor.CidBytes32 public rootCid;
+    TreeCbor.Tree public tree;
+    CidCbor.CidBytes32 public recordIdx;
 
     function setUp() public {
         nodeCbors = new bytes[](5);
@@ -35,23 +37,31 @@ contract TreeTest {
         (rootCommit, byteIdx) = CommitCbor.readCommit(TreeTest.rootCborWithoutSig, 0);
         require(byteIdx == rootCborWithoutSig.length, "expected to read all root commit bytes");
         rootCid = CidCbor.readCidBytes32(TreeTest.rootCborWithoutSig, rootCommit.data);
+        tree = TreeCbor.readTree(nodeCbors, rootCid);
+        recordIdx = CidCbor.CidBytes32.wrap(hex"6d51f125727763752e073d9301892fbddaa4cc6090d5fff9af7d49106b92d457");
     }
 
     function test_readTree_only() public view {
         TreeCbor.readTree(nodeCbors, rootCid);
     }
 
-    function test_readTree_valid() public view {
-        TreeCbor.Tree memory tree = TreeCbor.readTree(nodeCbors, rootCid);
+    function test_nodeByCid_only() public view {
+        TreeCbor.nodeByCid(tree, rootCid);
+    }
 
+    function test_nodeByCid_valid() public view {
         (TreeNodeCbor.TreeNode memory rootNode, uint nodeIndex) = TreeCbor.nodeByCid(tree, rootCid);
         console.log("root index", nodeIndex);
         console.log("root left index", CidCbor.CidIndex.unwrap(rootNode.left));
         console.log("root entries", rootNode.entries.length);
+    }
 
-        (RecordCbor.Record memory record, uint recordIndex) = TreeCbor.recordByCid(
-            tree, CidCbor.CidBytes32.wrap(hex"6d51f125727763752e073d9301892fbddaa4cc6090d5fff9af7d49106b92d457")
-        );
+    function test_recordByCid_only() public view {
+        TreeCbor.recordByCid(tree, recordIdx);
+    }
+
+    function test_recordByCid_valid() public view {
+        (RecordCbor.Record memory record, uint recordIndex) = TreeCbor.recordByCid(tree, recordIdx);
         console.log("record index", recordIndex);
         console.log("record text", record.text);
         console.log("record langs", record.langs.length);
