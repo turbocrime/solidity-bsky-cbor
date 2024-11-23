@@ -18,8 +18,8 @@ library RecordCbor {
         require(mapLen == 4, "expected 4 fields in record");
 
         for (uint i = 0; i < mapLen; i++) {
-            bytes memory mapKey;
-            (mapKey, byteIdx) = cborData.readStringBytes(byteIdx);
+            bytes9 mapKey;
+            (mapKey, byteIdx) = cborData.readStringBytes9(byteIdx);
             if (bytes5(mapKey) == "text") {
                 (ret.text, byteIdx) = cborData.readString(byteIdx);
             } else if (bytes6(mapKey) == "$type") {
@@ -31,7 +31,7 @@ library RecordCbor {
                     // langs string unused.
                     byteIdx = cborData.skipString(byteIdx);
                 }
-            } else if (bytes10(mapKey) == "createdAt") {
+            } else if (bytes9(mapKey) == "createdAt") {
                 // createdAt string unused.
                 // this field is arbitrary user-defined data. the useful and
                 // verifiable timestamp is the signed commit repo revision field

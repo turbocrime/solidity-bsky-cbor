@@ -111,7 +111,37 @@ library CBORDecoder {
         return (slice, byteIdx + len);
     }
 
-    function readStringBytes1(bytes memory cborData, uint byteIdx) internal pure returns (bytes1, uint) {
+    function readStringBytes9(bytes memory cborData, uint byteIdx) internal pure returns (bytes9, uint) {
+        uint8 major;
+        uint64 len;
+
+        (major, len, byteIdx) = parseCborHeader(cborData, byteIdx);
+        require(major == MajorText && len <= 9, "expected string length of 9 or less");
+
+        bytes9 slice;
+        assembly {
+            slice := and(mload(add(cborData, add(0x20, byteIdx))), not(shr(mul(len, 8), not(0))))
+        }
+
+        return (slice, byteIdx + len);
+    }
+
+    function readStringBytes7(bytes memory cborData, uint byteIdx) internal pure returns (bytes7, uint) {
+        uint8 major;
+        uint64 len;
+
+        (major, len, byteIdx) = parseCborHeader(cborData, byteIdx);
+        require(major == MajorText && len <= 7, "expected string length of 7 or less");
+
+        bytes7 slice;
+        assembly {
+            slice := and(mload(add(cborData, add(0x20, byteIdx))), not(shr(mul(len, 8), not(0))))
+        }
+
+        return (slice, byteIdx + len);
+    }
+
+    function readStringBytes1_normal(bytes memory cborData, uint byteIdx) internal pure returns (bytes1, uint) {
         uint8 major;
         uint64 len;
 
@@ -120,6 +150,24 @@ library CBORDecoder {
         require(len == 1, "expected string length of 1");
 
         return (cborData[byteIdx], byteIdx + len);
+    }
+
+    function readStringBytes1(bytes memory cborData, uint byteIdx) internal pure returns (bytes1, uint) {
+        return readStringBytes1_normal(cborData, byteIdx);
+    }
+
+    function readStringBytes1_assembly(bytes memory cborData, uint byteIdx) internal pure returns (bytes1, uint) {
+        uint8 head;
+        assembly {
+            head := mload(add(cborData, add(0x20, byteIdx)))
+        }
+        require(head == MajorText << shiftMajor | 0x01, "expected string length of 1");
+        bytes1 slice;
+        byteIdx += 1;
+        assembly {
+            slice := mload(add(cborData, add(0x20, byteIdx)))
+        }
+        return (slice, byteIdx + 2);
     }
 
     function skipString(bytes memory cborData, uint byteIdx) internal pure returns (uint) {

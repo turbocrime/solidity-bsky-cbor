@@ -169,19 +169,19 @@ contract CborDecodeTest {
         bytes1 mapKey;
         uint8 mapValue;
         (mapKey, index) = input.readStringBytes1(index);
-        require(mapKey == bytes1("a"), "map key is not 'a'");
+        require(mapKey == "a", "map key is not 'a'");
 
         (mapValue, index) = input.readUInt8(index);
         require(mapValue == 1, "map value is not 1");
 
         (mapKey, index) = input.readStringBytes1(index);
-        require(mapKey == bytes1("b"), "map key is not 'b'");
+        require(mapKey == "b", "map key is not 'b'");
 
         (mapValue, index) = input.readUInt8(index);
         require(mapValue == 2, "map value is not 2");
 
         (mapKey, index) = input.readStringBytes1(index);
-        require(mapKey == bytes1("c"), "map key is not 'c'");
+        require(mapKey == "c", "map key is not 'c'");
 
         (mapValue, index) = input.readUInt8(index);
         require(mapValue == 3, "map value is not 3");

@@ -23,9 +23,9 @@ library CommitCbor {
         require(mapLen == 5, "expected 5 fields in commit");
 
         for (uint i = 0; i < mapLen; i++) {
-            bytes memory mapKey;
-            (mapKey, byteIdx) = cborData.readStringBytes(byteIdx);
-            if (bytes8(mapKey) == "version") {
+            bytes7 mapKey;
+            (mapKey, byteIdx) = cborData.readStringBytes7(byteIdx);
+            if (bytes7(mapKey) == "version") {
                 (ret.version, byteIdx) = cborData.readUInt8(byteIdx);
                 require(ret.version == COMMIT_VERSION, "commit version number must be 3");
             } else if (bytes5(mapKey) == "data") {
