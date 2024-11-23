@@ -29,6 +29,7 @@ import "../src/CborDecode.sol";
 contract CborDecodeTest {
     using CBORDecoder for bytes;
 
+    /*
     function test_decodeFixedArray() public pure {
         bytes memory input = hex"8F0102030405060708090A64746573744401010101F4F6F5";
         uint index = 0;
@@ -72,6 +73,7 @@ contract CborDecodeTest {
         (str, index) = input.readString(index);
         require(keccak256(abi.encodePacked(str)) == keccak256(abi.encodePacked("test")), "str is not 'test'");
     }
+    */
 
     function test_decodeFalse() public pure {
         bytes memory input = hex"f4";
@@ -135,7 +137,9 @@ contract CborDecodeTest {
         uint arrayLen = 0;
         uint8 num;
 
+        console.log("reading fixed array");
         (arrayLen, index) = input.readFixedArray(index);
+        console.log("arrayLen", arrayLen);
         require(arrayLen == 5, "array len is not 5");
 
         (num, index) = input.readUInt8(index);

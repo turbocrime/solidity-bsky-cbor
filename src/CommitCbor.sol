@@ -31,11 +31,14 @@ library CommitCbor {
             } else if (bytes5(mapKey) == "data") {
                 (ret.data, byteIdx) = CidCbor.readCidIndex(cborData, byteIdx);
             } else if (bytes5(mapKey) == "prev") {
+                // TODO: skip this field?
                 (ret.prev, byteIdx) = CidCbor.readNullableCidIndex(cborData, byteIdx);
             } else if (bytes4(mapKey) == "did") {
                 (ret.did, byteIdx) = cborData.readString(byteIdx);
+                // TODO: other did formats?
                 require(bytes(ret.did).length == 32, "commit did string must be 32 bytes");
             } else if (bytes4(mapKey) == "rev") {
+                // monotonic commit timestamp
                 (ret.rev, byteIdx) = cborData.readString(byteIdx);
             } else {
                 revert("unexpected commit field");

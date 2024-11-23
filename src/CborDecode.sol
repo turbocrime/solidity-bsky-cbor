@@ -20,89 +20,73 @@
 // SPDX-License-Identifier: Apache-2.0
 pragma solidity ^0.8.17;
 
-uint8 constant MajUnsignedInt = 0;
-uint8 constant MajSignedInt = 1;
-uint8 constant MajByteString = 2;
-uint8 constant MajTextString = 3;
-uint8 constant MajArray = 4;
-uint8 constant MajMap = 5;
-uint8 constant MajTag = 6;
-uint8 constant MajOther = 7;
+uint8 constant shiftMajor = 5;
+uint8 constant maskMinor = 0x1f;
 
-uint8 constant False_Type = 20;
-uint8 constant True_Type = 21;
-uint8 constant Null_Type = 22;
+uint8 constant MajorUnsigned = 0;
+uint8 constant MajorNegative = 1;
+uint8 constant MajorBytes = 2;
+uint8 constant MajorText = 3;
+uint8 constant MajorArray = 4;
+uint8 constant MajorMap = 5;
+uint8 constant MajorTag = 6;
+uint8 constant MajorPrimitive = 7;
+
+uint8 constant MinorExtend1 = 24;
+uint8 constant MinorExtend2 = 25;
+uint8 constant MinorExtend4 = 26;
+uint8 constant MinorExtend8 = 27;
+
+uint8 constant MinorFalse = 0x14;
+uint8 constant MinorTrue = 0x15;
+uint8 constant MinorNull = 0x16;
+uint8 constant MinorUndefined = 0x17;
 
 /// @notice This library is a set a functions that allows anyone to decode cbor encoded bytes
 /// @dev methods in this library try to read the data type indicated from cbor encoded data stored in bytes at a specific index
 /// @dev if it successes, methods will return the read value and the new index (intial index plus read bytes)
 /// @author Zondax AG
 library CBORDecoder {
-    /// @notice check if next value on the cbor encoded data is null
-    /// @param cborData cbor encoded bytes to parse from
-    /// @param byteIdx current position to read on the cbor encoded bytes
     function isNullNext(bytes memory cborData, uint byteIdx) internal pure returns (bool) {
-        return cborData[byteIdx] == hex"f6"; // MajSimple 0xe0 & Null_Type 0x16 == 0xf6
+        return uint8(cborData[byteIdx]) == MajorPrimitive << shiftMajor | MinorNull;
     }
 
-    /// @notice attempt to read a bool value
-    /// @param cborData cbor encoded bytes to parse from
-    /// @param byteIdx current position to read on the cbor encoded bytes
-    /// @return a bool decoded from input bytes and the byte index after moving past the value
     function readBool(bytes memory cborData, uint byteIdx) internal pure returns (bool, uint) {
-        uint8 maj;
-        uint value;
-
-        (maj, value, byteIdx) = parseCborHeader(cborData, byteIdx);
-        require(maj == MajOther, "invalid maj (expected MajOther)");
-        assert(value == True_Type || value == False_Type);
-
-        return (value != False_Type, byteIdx);
+        uint8 simpleValue = uint8(cborData[byteIdx]);
+        uint8 simpleTrue = MajorPrimitive << shiftMajor | MinorTrue;
+        uint8 simpleFalse = MajorPrimitive << shiftMajor | MinorFalse;
+        require(simpleValue == simpleTrue || simpleValue == simpleFalse, "expected a simple boolean value");
+        return (simpleValue == simpleTrue, byteIdx + 1);
     }
 
-    /// @notice attempt to read the length of a fixed array
-    /// @param cborData cbor encoded bytes to parse from
-    /// @param byteIdx current position to read on the cbor encoded bytes
-    /// @return length of the fixed array decoded from input bytes and the byte index after moving past the value
-    function readFixedArray(bytes memory cborData, uint byteIdx) internal pure returns (uint, uint) {
-        uint8 maj;
-        uint len;
+    function readFixedArray(bytes memory cborData, uint byteIdx) internal pure returns (uint64 len, uint) {
+        uint8 major;
 
-        (maj, len, byteIdx) = parseCborHeader(cborData, byteIdx);
-        require(maj == MajArray, "invalid maj (expected MajArray)");
+        (major, len, byteIdx) = parseCborHeader(cborData, byteIdx);
+        require(major == MajorArray, "expected an array");
 
         return (len, byteIdx);
     }
 
-    /// @notice attempt to read the length of a fixed map
-    /// @param cborData cbor encoded bytes to parse from
-    /// @param byteIdx current position to read on the cbor encoded bytes
-    /// @return length of the fixed map decoded from input bytes and the byte index after moving past the value
-    function readFixedMap(bytes memory cborData, uint byteIdx) internal pure returns (uint, uint) {
-        uint8 maj;
-        uint len;
+    function readFixedMap(bytes memory cborData, uint byteIdx) internal pure returns (uint64 len, uint) {
+        uint8 major;
 
-        (maj, len, byteIdx) = parseCborHeader(cborData, byteIdx);
-        require(maj == MajMap, "invalid maj (expected MajMap)");
+        (major, len, byteIdx) = parseCborHeader(cborData, byteIdx);
+        require(major == MajorMap, "expected a map");
 
         return (len, byteIdx);
     }
 
-    /// @notice attempt to read an arbitrary length string value
-    /// @param cborData cbor encoded bytes to parse from
-    /// @param byteIdx current position to read on the cbor encoded bytes
-    /// @return arbitrary length string decoded from input bytes and the byte index after moving past the value
     function readString(bytes memory cborData, uint byteIdx) internal pure returns (string memory, uint) {
-        uint8 maj;
-        uint len;
+        uint8 major;
+        uint64 len;
 
-        (maj, len, byteIdx) = parseCborHeader(cborData, byteIdx);
-        require(maj == MajTextString, "invalid maj (expected MajTextString)");
+        (major, len, byteIdx) = parseCborHeader(cborData, byteIdx);
+        require(major == MajorText, "expected text");
 
-        uint max_len = byteIdx + len;
         bytes memory slice = new bytes(len);
         uint slice_index = 0;
-        for (uint256 i = byteIdx; i < max_len; i++) {
+        for (uint256 i = byteIdx; i < byteIdx + len; i++) {
             slice[slice_index] = cborData[i];
             slice_index++;
         }
@@ -110,21 +94,16 @@ library CBORDecoder {
         return (string(slice), byteIdx + len);
     }
 
-    /// @notice attempt to read an arbitrary length string value
-    /// @param cborData cbor encoded bytes to parse from
-    /// @param byteIdx current position to read on the cbor encoded bytes
-    /// @return arbitrary length string decoded from input bytes and the byte index after moving past the value
     function readStringBytes(bytes memory cborData, uint byteIdx) internal pure returns (bytes memory, uint) {
-        uint8 maj;
-        uint len;
+        uint8 major;
+        uint64 len;
 
-        (maj, len, byteIdx) = parseCborHeader(cborData, byteIdx);
-        require(maj == MajTextString, "invalid maj (expected MajTextString)");
+        (major, len, byteIdx) = parseCborHeader(cborData, byteIdx);
+        require(major == MajorText, "invalid major (expected MajorText)");
 
-        uint max_len = byteIdx + len;
         bytes memory slice = new bytes(len);
         uint slice_index = 0;
-        for (uint256 i = byteIdx; i < max_len; i++) {
+        for (uint256 i = byteIdx; i < byteIdx + len; i++) {
             slice[slice_index] = cborData[i];
             slice_index++;
         }
@@ -132,44 +111,35 @@ library CBORDecoder {
         return (slice, byteIdx + len);
     }
 
-    /// @notice attempt to read an arbitrary length string value
-    /// @param cborData cbor encoded bytes to parse from
-    /// @param byteIdx current position to read on the cbor encoded bytes
-    /// @return arbitrary length string decoded from input bytes and the byte index after moving past the value
     function readStringBytes1(bytes memory cborData, uint byteIdx) internal pure returns (bytes1, uint) {
-        uint8 maj;
-        uint len;
+        uint8 major;
+        uint64 len;
 
-        (maj, len, byteIdx) = parseCborHeader(cborData, byteIdx);
-        require(maj == MajTextString, "invalid maj (expected MajTextString)");
+        (major, len, byteIdx) = parseCborHeader(cborData, byteIdx);
+        require(major == MajorText, "invalid major (expected MajorText)");
         require(len == 1, "expected string length of 1");
 
         return (cborData[byteIdx], byteIdx + len);
     }
 
     function skipString(bytes memory cborData, uint byteIdx) internal pure returns (uint) {
-        uint8 maj;
-        uint len;
-        (maj, len, byteIdx) = parseCborHeader(cborData, byteIdx);
-        require(maj == MajTextString, "invalid maj (expected MajTextString)");
+        uint8 major;
+        uint64 len;
+        (major, len, byteIdx) = parseCborHeader(cborData, byteIdx);
+        require(major == MajorText, "invalid major (expected MajorText)");
         return byteIdx + len;
     }
 
-    /// @notice attempt to read an arbitrary byte string value
-    /// @param cborData cbor encoded bytes to parse from
-    /// @param byteIdx current position to read on the cbor encoded bytes
-    /// @return arbitrary byte string decoded from input bytes and the byte index after moving past the value
     function readBytes(bytes memory cborData, uint byteIdx) internal pure returns (bytes memory, uint) {
-        uint8 maj;
-        uint len;
+        uint8 major;
+        uint64 len;
 
-        (maj, len, byteIdx) = parseCborHeader(cborData, byteIdx);
-        require(maj == MajByteString, "invalid maj (expected MajByteString)");
+        (major, len, byteIdx) = parseCborHeader(cborData, byteIdx);
+        require(major == MajorBytes, "invalid major (expected MajorBytes)");
 
-        uint max_len = byteIdx + len;
         bytes memory slice = new bytes(len);
         uint slice_index = 0;
-        for (uint256 i = byteIdx; i < max_len; i++) {
+        for (uint256 i = byteIdx; i < byteIdx + len; i++) {
             slice[slice_index] = cborData[i];
             slice_index++;
         }
@@ -177,209 +147,111 @@ library CBORDecoder {
         return (slice, byteIdx + len);
     }
 
-    /// @notice attempt to read a uint64 value
-    /// @param cborData cbor encoded bytes to parse from
-    /// @param byteIdx current position to read on the cbor encoded bytes
-    /// @return an uint64 decoded from input bytes and the byte index after moving past the value
     function readUInt64(bytes memory cborData, uint byteIdx) internal pure returns (uint64, uint) {
-        uint8 maj;
-        uint value;
+        uint8 major;
+        uint64 value;
 
-        (maj, value, byteIdx) = parseCborHeader(cborData, byteIdx);
-        require(maj == MajUnsignedInt, "invalid maj (expected MajUnsignedInt)");
+        (major, value, byteIdx) = parseCborHeader(cborData, byteIdx);
+        require(major == MajorUnsigned, "invalid major (expected MajorUnsigned)");
 
-        return (uint64(value), byteIdx);
+        return (value, byteIdx);
     }
 
-    /// @notice attempt to read a uint32 value
-    /// @param cborData cbor encoded bytes to parse from
-    /// @param byteIdx current position to read on the cbor encoded bytes
-    /// @return an uint32 decoded from input bytes and the byte index after moving past the value
     function readUInt32(bytes memory cborData, uint byteIdx) internal pure returns (uint32, uint) {
-        uint8 maj;
-        uint value;
+        uint8 major;
+        uint64 value;
 
-        (maj, value, byteIdx) = parseCborHeader(cborData, byteIdx);
-        require(maj == MajUnsignedInt, "invalid maj (expected MajUnsignedInt)");
+        (major, value, byteIdx) = parseCborHeader(cborData, byteIdx);
+        require(major == MajorUnsigned, "invalid major (expected MajorUnsigned)");
 
         return (uint32(value), byteIdx);
     }
 
-    /// @notice attempt to read a uint16 value
-    /// @param cborData cbor encoded bytes to parse from
-    /// @param byteIdx current position to read on the cbor encoded bytes
-    /// @return an uint16 decoded from input bytes and the byte index after moving past the value
     function readUInt16(bytes memory cborData, uint byteIdx) internal pure returns (uint16, uint) {
-        uint8 maj;
-        uint value;
+        uint8 major;
+        uint64 value;
 
-        (maj, value, byteIdx) = parseCborHeader(cborData, byteIdx);
-        require(maj == MajUnsignedInt, "invalid maj (expected MajUnsignedInt)");
+        (major, value, byteIdx) = parseCborHeader(cborData, byteIdx);
+        require(major == MajorUnsigned, "invalid major (expected MajorUnsigned)");
 
         return (uint16(value), byteIdx);
     }
 
-    /// @notice attempt to read a uint8 value
-    /// @param cborData cbor encoded bytes to parse from
-    /// @param byteIdx current position to read on the cbor encoded bytes
-    /// @return an uint8 decoded from input bytes and the byte index after moving past the value
     function readUInt8(bytes memory cborData, uint byteIdx) internal pure returns (uint8, uint) {
-        uint8 maj;
-        uint value;
+        uint8 major;
+        uint64 value;
 
-        (maj, value, byteIdx) = parseCborHeader(cborData, byteIdx);
-        require(maj == MajUnsignedInt, "invalid maj (expected MajUnsignedInt)");
+        (major, value, byteIdx) = parseCborHeader(cborData, byteIdx);
+        require(major == MajorUnsigned, "invalid major (expected MajorUnsigned)");
 
         return (uint8(value), byteIdx);
     }
 
-    /// @notice attempt to read a int64 value
-    /// @param cborData cbor encoded bytes to parse from
-    /// @param byteIdx current position to read on the cbor encoded bytes
-    /// @return an int64 decoded from input bytes and the byte index after moving past the value
-    function readInt64(bytes memory cborData, uint byteIdx) internal pure returns (int64, uint) {
-        uint8 maj;
-        uint value;
-
-        (maj, value, byteIdx) = parseCborHeader(cborData, byteIdx);
-        require(maj == MajSignedInt || maj == MajUnsignedInt, "invalid maj (expected MajSignedInt or MajUnsignedInt)");
-
-        return (int64(uint64(value)), byteIdx);
-    }
-
-    /// @notice attempt to read a int32 value
-    /// @param cborData cbor encoded bytes to parse from
-    /// @param byteIdx current position to read on the cbor encoded bytes
-    /// @return an int32 decoded from input bytes and the byte index after moving past the value
-    function readInt32(bytes memory cborData, uint byteIdx) internal pure returns (int32, uint) {
-        uint8 maj;
-        uint value;
-
-        (maj, value, byteIdx) = parseCborHeader(cborData, byteIdx);
-        require(maj == MajSignedInt || maj == MajUnsignedInt, "invalid maj (expected MajSignedInt or MajUnsignedInt)");
-
-        return (int32(uint32(value)), byteIdx);
-    }
-
-    /// @notice attempt to read a int16 value
-    /// @param cborData cbor encoded bytes to parse from
-    /// @param byteIdx current position to read on the cbor encoded bytes
-    /// @return an int16 decoded from input bytes and the byte index after moving past the value
-    function readInt16(bytes memory cborData, uint byteIdx) internal pure returns (int16, uint) {
-        uint8 maj;
-        uint value;
-
-        (maj, value, byteIdx) = parseCborHeader(cborData, byteIdx);
-        require(maj == MajSignedInt || maj == MajUnsignedInt, "invalid maj (expected MajSignedInt or MajUnsignedInt)");
-
-        return (int16(uint16(value)), byteIdx);
-    }
-
-    /// @notice attempt to read a int8 value
-    /// @param cborData cbor encoded bytes to parse from
-    /// @param byteIdx current position to read on the cbor encoded bytes
-    /// @return an int8 decoded from input bytes and the byte index after moving past the value
-    function readInt8(bytes memory cborData, uint byteIdx) internal pure returns (int8, uint) {
-        uint8 maj;
-        uint value;
-
-        (maj, value, byteIdx) = parseCborHeader(cborData, byteIdx);
-        require(maj == MajSignedInt || maj == MajUnsignedInt, "invalid maj (expected MajSignedInt or MajUnsignedInt)");
-
-        return (int8(uint8(value)), byteIdx);
-    }
-
-    /// @notice slice uint8 from bytes starting at a given index
-    /// @param bs bytes to slice from
-    /// @param start current position to slice from bytes
-    /// @return uint8 sliced from bytes
-    function sliceUInt8(bytes memory bs, uint start) internal pure returns (uint8) {
+    function slice1(bytes memory bs, uint start) internal pure returns (uint8) {
         require(bs.length >= start + 1, "slicing out of range");
         return uint8(bs[start]);
     }
 
-    /// @notice slice uint16 from bytes starting at a given index
-    /// @param bs bytes to slice from
-    /// @param start current position to slice from bytes
-    /// @return uint16 sliced from bytes
-    function sliceUInt16(bytes memory bs, uint start) internal pure returns (uint16) {
+    function slice2(bytes memory bs, uint start) internal pure returns (uint16) {
         require(bs.length >= start + 2, "slicing out of range");
-        bytes2 x;
+        uint16 x;
         assembly {
             x := mload(add(bs, add(0x20, start)))
         }
-        return uint16(x);
+        return x;
     }
 
-    /// @notice slice uint32 from bytes starting at a given index
-    /// @param bs bytes to slice from
-    /// @param start current position to slice from bytes
-    /// @return uint32 sliced from bytes
-    function sliceUInt32(bytes memory bs, uint start) internal pure returns (uint32) {
+    function slice4(bytes memory bs, uint start) internal pure returns (uint32) {
         require(bs.length >= start + 4, "slicing out of range");
-        bytes4 x;
+        uint32 x;
         assembly {
             x := mload(add(bs, add(0x20, start)))
         }
-        return uint32(x);
+        return x;
     }
 
-    /// @notice slice uint64 from bytes starting at a given index
-    /// @param bs bytes to slice from
-    /// @param start current position to slice from bytes
-    /// @return uint64 sliced from bytes
-    function sliceUInt64(bytes memory bs, uint start) internal pure returns (uint64) {
+    function slice8(bytes memory bs, uint start) internal pure returns (uint64) {
         require(bs.length >= start + 8, "slicing out of range");
-        bytes8 x;
+        uint64 x;
         assembly {
             x := mload(add(bs, add(0x20, start)))
         }
-        return uint64(x);
+        return x;
     }
 
-    /// @notice Parse cbor header for major type and extra info.
-    /// @param cbor cbor encoded bytes to parse from
-    /// @param byteIndex current position to read on the cbor encoded bytes
-    /// @return major type, extra info and the byte index after moving past header bytes
-    function parseCborHeader(bytes memory cbor, uint byteIndex) internal pure returns (uint8, uint64, uint) {
-        uint8 first = sliceUInt8(cbor, byteIndex);
+    function parseCborHeader(bytes memory cbor, uint byteIndex) internal pure returns (uint8 major, uint64 arg, uint) {
+        uint8 head = uint8(cbor[byteIndex]);
         byteIndex += 1;
-        uint8 maj = (first & 0xe0) >> 5;
-        uint8 low = first & 0x1f;
-        // We don't handle CBOR headers with extra > 27, i.e. no indefinite lengths
-        require(low < 28, "cannot handle headers with extra > 27");
+        major = head >> 5;
+        uint8 minor = head & 0x1f;
 
-        // extra is lower bits
-        if (low < 24) {
-            return (maj, low, byteIndex);
+        // minor literal
+        if (minor < MinorExtend1) {
+            arg = uint8(minor);
+        } else {
+            // extended header
+            if (minor == MinorExtend1) {
+                arg = slice1(cbor, byteIndex);
+                byteIndex += 1;
+            } else if (minor == MinorExtend2) {
+                arg = slice2(cbor, byteIndex);
+                byteIndex += 2;
+            } else if (minor == MinorExtend4) {
+                arg = slice4(cbor, byteIndex);
+                byteIndex += 4;
+            } else if (minor == MinorExtend8) {
+                arg = slice8(cbor, byteIndex);
+                byteIndex += 8;
+            } else {
+                revert("unsupported header minor >27. (no indefinite sequences)");
+            }
+
+            require(
+                // floats (major primitive) are an exception to this rule
+                arg >= 24 || major == MajorPrimitive,
+                "an extended header must not contain a value that would fit inside a normal header"
+            );
         }
-
-        // extra in next byte
-        if (low == 24) {
-            uint8 next = sliceUInt8(cbor, byteIndex);
-            byteIndex += 1;
-            require(next >= 24, "invalid cbor"); // otherwise this is invalid cbor
-            return (maj, next, byteIndex);
-        }
-
-        // extra in next 2 bytes
-        if (low == 25) {
-            uint16 extra16 = sliceUInt16(cbor, byteIndex);
-            byteIndex += 2;
-            return (maj, extra16, byteIndex);
-        }
-
-        // extra in next 4 bytes
-        if (low == 26) {
-            uint32 extra32 = sliceUInt32(cbor, byteIndex);
-            byteIndex += 4;
-            return (maj, extra32, byteIndex);
-        }
-
-        // extra in next 8 bytes
-        assert(low == 27);
-        uint64 extra64 = sliceUInt64(cbor, byteIndex);
-        byteIndex += 8;
-        return (maj, extra64, byteIndex);
+        return (major, arg, byteIndex);
     }
 }

@@ -6,11 +6,7 @@ import "./CborDecode.sol";
 library CidCbor {
     using CBORDecoder for bytes;
 
-    uint8 private constant MAJOR_BYTE_STRING = 2;
-    uint8 private constant MAJOR_TYPE_TAG = 6;
     uint8 private constant TAG_CID = 42;
-
-    uint8 private constant EXPECTED_CID_LENGTH = 37;
 
     uint8 private constant MULTIBASE_FORMAT = 0x00;
     uint8 private constant CID_V1 = 0x01;
@@ -32,23 +28,46 @@ library CidCbor {
      */
     type CidBytes32 is bytes32;
 
-    function expectCidTag(bytes memory cborData, uint byteIdx) internal pure returns (uint) {
-        uint8 maj;
-        uint value;
-        (maj, value, byteIdx) = cborData.parseCborHeader(byteIdx);
-        require(maj == MAJOR_TYPE_TAG, "expected tag major");
-        require(value == TAG_CID, "expected tag 42 for CID");
+    function expectTagCid(bytes memory cborData, uint byteIdx) internal pure returns (uint) {
+        uint8 head = uint8(cborData[byteIdx]);
+        uint8 tagValue = uint8(cborData[byteIdx + 1]);
+        require(head == MajorTag << shiftMajor | MinorExtend1, "expected tag head with 1-byte extension");
+        require(tagValue == TAG_CID, "expected tag 42 for CID");
+        return byteIdx + 2;
+    }
+
+    function expect37Bytes(bytes memory cborData, uint byteIdx) internal pure returns (uint) {
+        require(
+            uint8(cborData[byteIdx]) == MajorBytes << shiftMajor | MinorExtend1,
+            "expected byte head with 1-byte extension"
+        );
+        require(uint8(cborData[byteIdx + 1]) == 37, "expected 37 bytes for CID");
+        byteIdx += 2;
         return byteIdx;
     }
 
     function readCidBytes32(bytes memory cborData, CidIndex idx) internal pure returns (CidBytes32) {
+        return readCidBytes32_assembly(cborData, idx);
+    }
+
+    function readCidBytes32_loop(bytes memory cborData, CidIndex idx) internal pure returns (CidBytes32) {
         uint cidIdx = CidIndex.unwrap(idx);
-        require(cidIdx != 0, "Can't read a CID hash at index 0");
-        bytes memory cidBytes = new bytes(MULTIHASH_SIZE_32);
-        for (uint i = 0; i < MULTIHASH_SIZE_32; i++) {
+        bytes memory cidBytes = new bytes(32);
+        for (uint i = 0; i < 32; i++) {
             cidBytes[i] = cborData[cidIdx + i];
         }
         return CidBytes32.wrap(bytes32(cidBytes));
+    }
+
+    function readCidBytes32_assembly(bytes memory cborData, CidIndex idx) internal pure returns (CidBytes32) {
+        uint cidIdx = CidIndex.unwrap(idx);
+        require(cidIdx != 0, "Can't read a CID hash at index 0");
+
+        bytes32 cidBytes;
+        assembly ("memory-safe") {
+            cidBytes := mload(add(cborData, add(0x20, cidIdx)))
+        }
+        return CidBytes32.wrap(cidBytes);
     }
 
     function readNullableCidIndex(bytes memory cborData, uint byteIdx) internal pure returns (CidIndex, uint) {
@@ -60,20 +79,40 @@ library CidCbor {
     }
 
     function readCidIndex(bytes memory cborData, uint byteIdx) internal pure returns (CidIndex, uint) {
-        (byteIdx) = expectCidTag(cborData, byteIdx);
-        (uint8 maj, uint len, uint bytesStart) = cborData.parseCborHeader(byteIdx);
+        return readCidIndex_assembly(cborData, byteIdx);
+    }
 
-        require(maj == MAJOR_BYTE_STRING, "expected byte string");
-        require(len == EXPECTED_CID_LENGTH, "expected bytes length 37 for CID");
+    function readCidIndex_assembly(bytes memory cborData, uint byteIdx) internal pure returns (CidIndex, uint) {
+        bytes9 cidHead;
+        assembly ("memory-safe") {
+            cidHead := mload(add(cborData, add(0x20, byteIdx)))
+        }
 
-        // multibase format
-        require(uint8(cborData[bytesStart]) == MULTIBASE_FORMAT, "expected multibase item");
-        // cid format
-        require(uint8(cborData[bytesStart + 1]) == CID_V1, "expected CID v1");
-        require(uint8(cborData[bytesStart + 2]) == MULTICODEC_DAG_CBOR, "expected CID multicodec DAG-CBOR");
-        require(uint8(cborData[bytesStart + 3]) == MULTIHASH_SHA_256, "expected CID multihash sha-256");
-        require(uint8(cborData[bytesStart + 4]) == MULTIHASH_SIZE_32, "expected CID content size 32 bytes");
+        // all cids encountered will contain this 9-byte header
+        // D8 2A cbor tag(42) cid
+        // 58 25 cbor bytes(37) total length
+        // 00 multibase format
+        // 01 CID version
+        // 71 multicodec DAG-CBOR
+        // 12 multihash sha-256
+        // 20 hash size 32 bytes
+        require(cidHead == hex"D82A58250001711220", "expected CIDv1 dag-cbor sha256 head");
+        byteIdx += 9;
+        return (CidIndex.wrap(byteIdx), byteIdx + 32);
+    }
 
-        return (CidIndex.wrap(bytesStart + 5), bytesStart + len);
+    function readCidIndex_access(bytes memory cborData, uint byteIdx) internal pure returns (CidIndex, uint) {
+        byteIdx = expectTagCid(cborData, byteIdx);
+        byteIdx = expect37Bytes(cborData, byteIdx);
+
+        // uint8 conversion is faster than assembly? lol
+        require(uint8(cborData[byteIdx]) == MULTIBASE_FORMAT, "expected multibase item");
+        // cid format always
+        require(uint8(cborData[byteIdx + 1]) == CID_V1, "expected CID v1");
+        require(uint8(cborData[byteIdx + 2]) == MULTICODEC_DAG_CBOR, "expected CID multicodec DAG-CBOR");
+        require(uint8(cborData[byteIdx + 3]) == MULTIHASH_SHA_256, "expected CID multihash sha-256");
+        require(uint8(cborData[byteIdx + 4]) == MULTIHASH_SIZE_32, "expected CID content size 32 bytes");
+
+        return (CidIndex.wrap(byteIdx + 5), byteIdx + 37);
     }
 }
