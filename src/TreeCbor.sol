@@ -14,6 +14,7 @@ library TreeCbor {
     }
 
     function _readTree(bytes[] memory cborData) internal pure returns (Tree memory) {
+        require(cborData.length > 0, "Tree must contain nodes");
         TreeNodeCbor.TreeNode[] memory nodes = new TreeNodeCbor.TreeNode[](cborData.length);
         CidCbor.CidBytes32[] memory cids = new CidCbor.CidBytes32[](cborData.length);
 
@@ -28,7 +29,7 @@ library TreeCbor {
     }
 
     function readTree(bytes[] memory cborData) internal pure returns (Tree memory) {
-        return requireUniqueCids(_readTree(cborData));
+        return validTree(_readTree(cborData));
     }
 
     function getCid(Tree memory tree, CidCbor.CidBytes32 indexCid)
@@ -53,7 +54,7 @@ library TreeCbor {
         revert("node not found");
     }
 
-    function requireUniqueCids(Tree memory tree) internal pure returns (Tree memory) {
+    function validTree(Tree memory tree) internal pure returns (Tree memory) {
         for (uint i = 0; i < tree.cids.length; i++) {
             bytes32 thisCid = CidCbor.CidBytes32.unwrap(tree.cids[i]);
             for (uint j = i + 1; j < tree.nodes.length; j++) {
