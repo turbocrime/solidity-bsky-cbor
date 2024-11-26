@@ -33,10 +33,10 @@ library TreeCbor {
     }
 
     function hasCid(Tree memory tree, CidCbor.Cid cid) internal pure returns (bool, uint) {
-        return hasCid(tree, cid, 0);
+        return _hasCid(tree, cid, 0);
     }
 
-    function hasCid(Tree memory tree, CidCbor.Cid cid, uint startIdx) internal pure returns (bool, uint) {
+    function _hasCid(Tree memory tree, CidCbor.Cid cid, uint startIdx) internal pure returns (bool, uint) {
         uint256 index = CidCbor.Cid.unwrap(cid);
         for (uint i = startIdx; i < tree.cids.length; i++) {
             if (CidCbor.Cid.unwrap(tree.cids[i]) == index) {
@@ -99,7 +99,7 @@ library TreeCbor {
 
         while (queue.length > 0) {
             currentCid = queue[0];
-            (hasCurrent, currentIndex) = TreeCbor.hasCid(tree, currentCid, currentIndex);
+            (hasCurrent, currentIndex) = TreeCbor.hasCid(tree, currentCid);
             if (!hasCurrent) {
                 queue = memPop(queue);
                 continue;
@@ -110,12 +110,10 @@ library TreeCbor {
 
             for (uint i = 0; i < currentNode.entries.length; i++) {
                 rightWalk[i] = currentNode.entries[i].tree;
-                if (keccak256(abi.encode(targetKey)) == keccak256(abi.encode(currentNode.entries[i].key))) {
-                    CidCbor.Cid valueCid = currentNode.entries[i].value;
-                    if (CidCbor.Cid.unwrap(valueCid) == CidCbor.Cid.unwrap(targetCid)) {
-                        require(!found, "duplicate entry");
-                        found = true;
-                    }
+                // TODO: match on key lol
+                if (CidCbor.Cid.unwrap(currentNode.entries[i].value) == CidCbor.Cid.unwrap(targetCid)) {
+                    require(!found, "duplicate entry");
+                    found = true;
                 }
             }
 

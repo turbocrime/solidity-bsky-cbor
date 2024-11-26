@@ -70,6 +70,7 @@ contract TreeTest is Test {
     }
 
     function test_verifyInclusion_only() public view {
-        TreeCbor.verifyInclusion(tree, rootCid, targetRecord, "app.bsky.feed.post/3laydu3mgac2");
+        bool result = TreeCbor.verifyInclusion(tree, rootCid, targetRecord, "app.bsky.feed.post/3laydu3mgac2");
+        console.log("Verify Inclusion %s", result);
     }
 }
