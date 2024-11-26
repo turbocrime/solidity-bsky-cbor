@@ -7,21 +7,21 @@ library TreeNodeCbor {
     using CBORDecoder for bytes;
 
     struct TreeNode {
-        CidCbor.CidIndex left;
+        CidCbor.Cid left;
         TreeNodeEntry[] entries;
     }
 
     struct TreeNodeEntry {
         string key;
-        CidCbor.CidIndex value;
-        CidCbor.CidIndex tree;
+        CidCbor.Cid value;
+        CidCbor.Cid tree;
     }
 
     struct TreeNodeE {
         uint8 p; // prefixlen
         bytes k; // keysuffix
-        CidCbor.CidIndex v; // value
-        CidCbor.CidIndex t; // tree
+        CidCbor.Cid v; // value
+        CidCbor.Cid t; // tree
     }
 
     function readNodeE(bytes memory cborData, uint byteIdx) internal pure returns (TreeNodeE[] memory, uint) {
@@ -44,8 +44,8 @@ library TreeNodeCbor {
 
         uint8 p;
         bytes memory k;
-        CidCbor.CidIndex v;
-        CidCbor.CidIndex t;
+        CidCbor.Cid v;
+        CidCbor.Cid t;
 
         for (uint i = 0; i < mapLen; i++) {
             bytes1 mapKey;
@@ -55,9 +55,9 @@ library TreeNodeCbor {
             } else if (mapKey == "k") {
                 (k, byteIdx) = cborData.readBytes(byteIdx);
             } else if (mapKey == "t") {
-                (t, byteIdx) = CidCbor.readNullableCidIndex(cborData, byteIdx);
+                (t, byteIdx) = CidCbor.readNullableCid(cborData, byteIdx);
             } else if (mapKey == "v") {
-                (v, byteIdx) = CidCbor.readNullableCidIndex(cborData, byteIdx);
+                (v, byteIdx) = CidCbor.readNullableCid(cborData, byteIdx);
             } else {
                 revert("unexpected node entry field");
             }
@@ -102,7 +102,7 @@ library TreeNodeCbor {
             bytes1 mapKey;
             (mapKey, byteIdx) = cborData.readStringBytes1(byteIdx);
             if (mapKey == "l") {
-                (node.left, byteIdx) = CidCbor.readNullableCidIndex(cborData, byteIdx);
+                (node.left, byteIdx) = CidCbor.readNullableCid(cborData, byteIdx);
             } else if (mapKey == "e") {
                 TreeNodeE[] memory e;
                 (e, byteIdx) = readNodeE(cborData, byteIdx);

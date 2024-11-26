@@ -9,11 +9,7 @@ contract CidCborTest is Test {
     bytes private constant cidCbor =
         hex"D82A5825000171122066DA6655BF8DA79B69A87299CF170FED8497FA3059379DC4A8BFE1E28CAB5D93";
 
-    function test_readCidIndex_only() public pure {
-        CidCbor.readCidIndex(cidCbor, 0);
-    }
-
-    function test_readCidBytes32_only() public pure {
-        CidCbor.readCidBytes32(cidCbor, CidCbor.CidIndex.wrap(9));
+    function test_readCid_only() public pure {
+        CidCbor.readCid(cidCbor, 0);
     }
 }

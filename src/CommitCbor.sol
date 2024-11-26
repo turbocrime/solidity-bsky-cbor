@@ -11,9 +11,9 @@ library CommitCbor {
     struct Commit {
         string did;
         uint8 version;
-        CidCbor.CidIndex data;
+        CidCbor.Cid data;
         string rev;
-        CidCbor.CidIndex prev;
+        CidCbor.Cid prev;
     }
 
     function readCommit(bytes memory cborData, uint byteIdx) internal pure returns (Commit memory ret, uint) {
@@ -29,10 +29,10 @@ library CommitCbor {
                 (ret.version, byteIdx) = cborData.readUInt8(byteIdx);
                 require(ret.version == COMMIT_VERSION, "commit version number must be 3");
             } else if (bytes5(mapKey) == "data") {
-                (ret.data, byteIdx) = CidCbor.readCidIndex(cborData, byteIdx);
+                (ret.data, byteIdx) = CidCbor.readCid(cborData, byteIdx);
             } else if (bytes5(mapKey) == "prev") {
                 // TODO: skip this field?
-                (ret.prev, byteIdx) = CidCbor.readNullableCidIndex(cborData, byteIdx);
+                (ret.prev, byteIdx) = CidCbor.readNullableCid(cborData, byteIdx);
             } else if (bytes4(mapKey) == "did") {
                 (ret.did, byteIdx) = cborData.readString(byteIdx);
                 // TODO: other did formats?

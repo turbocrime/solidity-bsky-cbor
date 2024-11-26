@@ -25,19 +25,20 @@ contract TreeNodeCborTest is Test {
 
         require(byteIdx == treeNodeBytes.length, "expected to read all bytes");
         require(node.entries.length == 5, "expected 5 entries");
-        require(CidCbor.CidIndex.unwrap(node.left) != 0, "expected left cid to be non-null");
+        require(CidCbor.Cid.unwrap(node.left) != 0, "expected left cid to be non-null");
 
-        CidCbor.CidBytes32 leftCid = CidCbor.readCidBytes32(treeNodeBytes, node.left);
+        CidCbor.Cid leftCid = node.left;
 
         require(
-            CidCbor.CidBytes32.unwrap(leftCid) == hex"6e7335ed248edae3ed49d47b88a5fcad2985e15f416f8ae23a49dfc1231aeb91",
+            CidCbor.Cid.unwrap(leftCid)
+                == uint256(bytes32(hex"6e7335ed248edae3ed49d47b88a5fcad2985e15f416f8ae23a49dfc1231aeb91")),
             "left sha"
         );
         for (uint i = 0; i < node.entries.length; i++) {
             console.log("node entry %s", i);
             console.log("key", node.entries[i].key);
-            console.log("value", CidCbor.CidIndex.unwrap(node.entries[i].value));
-            console.log("tree", CidCbor.CidIndex.unwrap(node.entries[i].tree));
+            console.log("value", CidCbor.Cid.unwrap(node.entries[i].value));
+            console.log("tree", CidCbor.Cid.unwrap(node.entries[i].tree));
         }
     }
 
