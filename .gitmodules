@@ -1,9 +1,3 @@
 [submodule "lib/forge-std"]
 	path = lib/forge-std
 	url = https://github.com/foundry-rs/forge-std
-[submodule "lib/solidity-cborutils"]
-	path = lib/solidity-cborutils
-	url = https://github.com/smartcontractkit/solidity-cborutils
-[submodule "lib/buffer"]
-	path = lib/buffer
-	url = https://github.com/ensdomains/buffer
