@@ -43,7 +43,7 @@ library TreeCbor {
     function getCid(Tree memory tree, CidCbor.CidBytes32 indexCid, uint startIdx)
         internal
         pure
-        returns (TreeNodeCbor.TreeNode memory, uint index)
+        returns (TreeNodeCbor.TreeNode memory, uint)
     {
         bytes32 indexBytes = CidCbor.CidBytes32.unwrap(indexCid);
         for (uint i = startIdx; i < tree.cids.length; i++) {
@@ -51,7 +51,17 @@ library TreeCbor {
                 return (tree.nodes[i], i);
             }
         }
-        revert("node not found");
+        revert("couldn't get cid, not found");
+    }
+
+    function hasCid(Tree memory tree, CidCbor.CidBytes32 indexCid, uint startIdx) internal pure returns (bool, uint) {
+        bytes32 indexBytes = CidCbor.CidBytes32.unwrap(indexCid);
+        for (uint i = startIdx; i < tree.cids.length; i++) {
+            if (CidCbor.CidBytes32.unwrap(tree.cids[i]) == indexBytes) {
+                return (true, i);
+            }
+        }
+        return (false, 0);
     }
 
     function validTree(Tree memory tree) internal pure returns (Tree memory) {
@@ -63,5 +73,69 @@ library TreeCbor {
             }
         }
         return tree;
+    }
+
+    function verifyInclusion(
+        TreeCbor.Tree memory tree,
+        bytes[] memory treeCbor,
+        CidCbor.CidBytes32 entryCid,
+        bytes memory targetRecord,
+        string memory targetKey
+    ) internal pure returns (bool) {
+        CidCbor.CidBytes32 targetCid = CidCbor.CidBytes32.wrap(sha256(targetRecord));
+        CidCbor.CidBytes32[] memory queue = new CidCbor.CidBytes32[](1);
+        queue[0] = entryCid;
+
+        CidCbor.CidBytes32 leftWalk;
+        CidCbor.CidBytes32[] memory rightWalk;
+        CidCbor.CidBytes32 currentCid;
+        TreeNodeCbor.TreeNode memory currentNode;
+        uint currentIndex;
+
+        bool found = false;
+        bool hasCurrent = false;
+
+        CidCbor.CidBytes32[] memory newQueue;
+
+        while (queue.length > 0) {
+            currentCid = queue[0];
+            (hasCurrent, currentIndex) = TreeCbor.hasCid(tree, currentCid, currentIndex);
+            if (!hasCurrent) {
+                newQueue = new CidCbor.CidBytes32[](queue.length - 1);
+                for (uint i = 0; i < newQueue.length; i++) {
+                    newQueue[i] = queue[i + 1];
+                }
+                queue = newQueue;
+                continue;
+            }
+            (currentNode, currentIndex) = TreeCbor.getCid(tree, currentCid, currentIndex);
+
+            leftWalk = CidCbor.readCidBytes32(treeCbor[currentIndex], currentNode.left);
+            rightWalk = new CidCbor.CidBytes32[](currentNode.entries.length);
+
+            for (uint i = 0; i < currentNode.entries.length; i++) {
+                rightWalk[i] = CidCbor.readCidBytes32(treeCbor[currentIndex], currentNode.entries[i].tree);
+                if (keccak256(abi.encode(targetKey)) == keccak256(abi.encode(currentNode.entries[i].key))) {
+                    CidCbor.CidBytes32 valueCid =
+                        CidCbor.readCidBytes32(treeCbor[currentIndex], currentNode.entries[i].value);
+                    if (CidCbor.CidBytes32.unwrap(valueCid) == CidCbor.CidBytes32.unwrap(targetCid)) {
+                        require(!found, "duplicate entry");
+                        found = true;
+                    }
+                }
+            }
+
+            newQueue = new CidCbor.CidBytes32[](queue.length + rightWalk.length);
+            newQueue[0] = leftWalk;
+            for (uint i = 1; i < queue.length; i++) {
+                newQueue[i] = queue[i];
+            }
+            for (uint i = 0; i < rightWalk.length; i++) {
+                newQueue[queue.length + i] = rightWalk[i];
+            }
+            queue = newQueue;
+        }
+
+        return found;
     }
 }

@@ -14,6 +14,9 @@ contract TreeTest is Test {
         hex"A56364696478206469643A706C633A6D74713365346D67743777796A6868616E69657A656A3637637265766D336C61796B6C746F73703232716464617461D82A5825000171122066DA6655BF8DA79B69A87299CF170FED8497FA3059379DC4A8BFE1E28CAB5D936470726576F66776657273696F6E03";
     bytes32 private constant correctLeftCidBytes = hex"6E7335ED248EDAE3ED49D47B88A5FCAD2985E15F416F8AE23A49DFC1231AEB91";
 
+    bytes private constant targetRecord =
+        hex"a4647465787478196361722066696c65732063616e6e6f74206875727420796f75652474797065726170702e62736b792e666565642e706f7374656c616e67738162656e696372656174656441747818323032342d31312d31355431323a31303a33322e3031345a";
+
     //bytes32 private constant recordCidBytes = hex"6d51f125727763752e073d9301892fbddaa4cc6090d5fff9af7d49106b92d457";
     //CidCbor.CidBytes32 private constant recordIdx = CidCbor.CidBytes32.wrap(recordCidBytes);
 
@@ -71,5 +74,9 @@ contract TreeTest is Test {
         console.log("node index", nodeIndex);
         console.log("node.left index", CidCbor.CidIndex.unwrap(rootNode.left));
         console.log("node.entries length", rootNode.entries.length);
+    }
+
+    function test_verifyInclusion_only() public view {
+        TreeCbor.verifyInclusion(tree, nodeCbors, rootCid, targetRecord, "app.bsky.feed.post/3laydu3mgac2");
     }
 }
