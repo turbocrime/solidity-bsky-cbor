@@ -24,11 +24,11 @@ library TreeNodeCbor {
         CidCbor.CidIndex t; // tree
     }
 
-    function readNodeE(bytes memory cborData, uint byteIdx) internal pure returns (TreeNodeE[] memory ret, uint) {
+    function readNodeE(bytes memory cborData, uint byteIdx) internal pure returns (TreeNodeE[] memory, uint) {
         uint arrayLen;
         (arrayLen, byteIdx) = cborData.readFixedArray(byteIdx);
 
-        ret = new TreeNodeE[](arrayLen);
+        TreeNodeE[] memory ret = new TreeNodeE[](arrayLen);
         for (uint i = 0; i < arrayLen; i++) {
             (ret[i], byteIdx) = readE(cborData, byteIdx);
         }
@@ -58,6 +58,8 @@ library TreeNodeCbor {
                 (t, byteIdx) = CidCbor.readNullableCidIndex(cborData, byteIdx);
             } else if (mapKey == "v") {
                 (v, byteIdx) = CidCbor.readNullableCidIndex(cborData, byteIdx);
+            } else {
+                revert("unexpected node entry field");
             }
         }
 
@@ -65,21 +67,16 @@ library TreeNodeCbor {
     }
 
     function buildEntryKeys(TreeNodeE[] memory e) internal pure returns (TreeNodeEntry[] memory) {
-        return buildEntryKeys_assembly(e);
-    }
-
-    function buildEntryKeys_assembly(TreeNodeE[] memory e) internal pure returns (TreeNodeEntry[] memory) {
         TreeNodeEntry[] memory entries = new TreeNodeEntry[](e.length);
         bytes memory previousKey = new bytes(0);
         for (uint i = 0; i < e.length; i++) {
             uint8 p = e[i].p;
             bytes memory k = e[i].k;
             bytes memory key = new bytes(p + k.length);
-            //console.log("i=%s", i);
-            //console.log("before assembly p=%s k.length=%s key.length=%s", p, k.length, key.length);
             // Calculate number of words needed
             uint pWords = (p + 31) / 32; // ceil(p/32)
             uint kWords = (k.length + 31) / 32; // ceil(k.length/32)
+            // init loop variable
             uint j;
 
             assembly {
@@ -90,26 +87,6 @@ library TreeNodeCbor {
                 for { j := 0 } lt(j, kWords) { j := add(j, 1) } {
                     mstore(add(add(key, 0x20), add(p, mul(j, 32))), mload(add(k, add(0x20, mul(j, 32)))))
                 }
-            }
-            //console.log("after assembly key=%s key.length=%s", string(key), key.length);
-            entries[i] = TreeNodeEntry(string(key), e[i].v, e[i].t);
-            previousKey = key;
-        }
-        return entries;
-    }
-
-    function buildEntryKeys_loop(TreeNodeE[] memory e) internal pure returns (TreeNodeEntry[] memory) {
-        TreeNodeEntry[] memory entries = new TreeNodeEntry[](e.length);
-        bytes memory previousKey = new bytes(0);
-        for (uint i = 0; i < e.length; i++) {
-            uint8 p = e[i].p;
-            bytes memory k = e[i].k;
-            bytes memory key = new bytes(p + k.length);
-            for (uint j = 0; j < p; j++) {
-                key[j] = previousKey[j];
-            }
-            for (uint j = p; j < p + k.length; j++) {
-                key[j] = k[j - p];
             }
             entries[i] = TreeNodeEntry(string(key), e[i].v, e[i].t);
             previousKey = key;
@@ -130,6 +107,8 @@ library TreeNodeCbor {
                 TreeNodeE[] memory e;
                 (e, byteIdx) = readNodeE(cborData, byteIdx);
                 node.entries = buildEntryKeys(e);
+            } else {
+                revert("unexpected node field");
             }
         }
         return (node, byteIdx);

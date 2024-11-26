@@ -47,19 +47,6 @@ library CidCbor {
     }
 
     function readCidBytes32(bytes memory cborData, CidIndex idx) internal pure returns (CidBytes32) {
-        return readCidBytes32_assembly(cborData, idx);
-    }
-
-    function readCidBytes32_loop(bytes memory cborData, CidIndex idx) internal pure returns (CidBytes32) {
-        uint cidIdx = CidIndex.unwrap(idx);
-        bytes memory cidBytes = new bytes(32);
-        for (uint i = 0; i < 32; i++) {
-            cidBytes[i] = cborData[cidIdx + i];
-        }
-        return CidBytes32.wrap(bytes32(cidBytes));
-    }
-
-    function readCidBytes32_assembly(bytes memory cborData, CidIndex idx) internal pure returns (CidBytes32) {
         uint cidIdx = CidIndex.unwrap(idx);
         require(cidIdx != 0, "Can't read a CID hash at index 0");
 
