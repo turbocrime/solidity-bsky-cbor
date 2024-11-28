@@ -66,28 +66,30 @@ library TreeNodeCbor {
         return (TreeNodeE(p, k, v, t), byteIdx);
     }
 
+    function sliceCat(bytes memory prefix, uint8 slice, bytes memory append) internal pure returns (bytes memory cat) {
+        require(slice <= prefix.length, "prefix slice dimension out of bounds");
+        cat = new bytes(slice + append.length);
+
+        assembly {
+            let j := 0
+            let prefixWords := div(add(slice, 31), 32)
+            let appendWords := div(add(mload(append), 31), 32)
+            for { j := 0 } lt(j, prefixWords) { j := add(j, 1) } {
+                mstore(add(cat, add(0x20, mul(j, 32))), mload(add(prefix, add(0x20, mul(j, 32)))))
+            }
+            for { j := 0 } lt(j, appendWords) { j := add(j, 1) } {
+                mstore(add(cat, add(0x20, add(slice, mul(j, 32)))), mload(add(append, add(0x20, mul(j, 32)))))
+            }
+        }
+
+        return cat;
+    }
+
     function buildEntryKeys(TreeNodeE[] memory e) internal pure returns (TreeNodeEntry[] memory) {
         TreeNodeEntry[] memory entries = new TreeNodeEntry[](e.length);
         bytes memory previousKey = new bytes(0);
         for (uint i = 0; i < e.length; i++) {
-            uint8 p = e[i].p;
-            bytes memory k = e[i].k;
-            bytes memory key = new bytes(p + k.length);
-            // Calculate number of words needed
-            uint pWords = (p + 31) / 32; // ceil(p/32)
-            uint kWords = (k.length + 31) / 32; // ceil(k.length/32)
-            // init loop variable
-            uint j;
-
-            assembly {
-                for { j := 0 } lt(j, pWords) { j := add(j, 1) } {
-                    mstore(add(key, add(0x20, mul(j, 32))), mload(add(previousKey, add(0x20, mul(j, 32)))))
-                }
-
-                for { j := 0 } lt(j, kWords) { j := add(j, 1) } {
-                    mstore(add(add(key, 0x20), add(p, mul(j, 32))), mload(add(k, add(0x20, mul(j, 32)))))
-                }
-            }
+            bytes memory key = sliceCat(previousKey, e[i].p, e[i].k);
             entries[i] = TreeNodeEntry(string(key), e[i].v, e[i].t);
             previousKey = key;
         }
