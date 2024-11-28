@@ -12,18 +12,18 @@ contract TreeTest is Test {
     //bytes memory rootSig = hex"D395A8C48C851C0AE8ABE772D9FC33CAC0619709CA2BCC5B60F7FF9E6FF7BF8363F68F57C10E0277403E800C5B9FD7C448F9816BF4AB878FD8148CEB24EF520B";
     bytes public constant rootCborWithoutSig =
         hex"A56364696478206469643A706C633A6D74713365346D67743777796A6868616E69657A656A3637637265766D336C61796B6C746F73703232716464617461D82A5825000171122066DA6655BF8DA79B69A87299CF170FED8497FA3059379DC4A8BFE1E28CAB5D936470726576F66776657273696F6E03";
-    uint256 private constant correctLeftCidBytes =
-        uint256(bytes32(hex"6E7335ED248EDAE3ED49D47B88A5FCAD2985E15F416F8AE23A49DFC1231AEB91"));
+    Cid private constant expectLeftCid =
+        Cid.wrap(uint256(bytes32(hex"6E7335ED248EDAE3ED49D47B88A5FCAD2985E15F416F8AE23A49DFC1231AEB91")));
 
     bytes private constant targetRecord =
         hex"a4647465787478196361722066696c65732063616e6e6f74206875727420796f75652474797065726170702e62736b792e666565642e706f7374656c616e67738162656e696372656174656441747818323032342d31312d31355431323a31303a33322e3031345a";
 
     //bytes32 private constant recordCidBytes = hex"6d51f125727763752e073d9301892fbddaa4cc6090d5fff9af7d49106b92d457";
-    //CidCbor.Cid private constant recordIdx = CidCbor.Cid.wrap(recordCidBytes);
+    //Cid private constant recordIdx = Cid.wrap(recordCidBytes);
 
     CommitCbor.Commit private rootCommit;
-    CidCbor.Cid private rootCid;
-    CidCbor.Cid private wrongRootCid;
+    Cid private rootCid;
+    Cid private wrongRootCid;
     bytes[] private nodeCbors = [
         bytes(
             hex"a2616584a4616b58236170702e62736b792e67726170682e666f6c6c6f772f336b77767473726366736332346170006174d82a58250001711220232061c4165ce246d7f0b997b4a4212a0355faadf93fdecd64fca89db1d7bd9e6176d82a58250001711220181c3cddd15732e2a37c4455038c71ba75c1d5ca1850f78086d7bf29b490f7cba4616b487470346b797332346170181b6174d82a5825000171122096273e2ef4796b720c8e9f12292dfde8ce593a898ddd3c4c8d6d94c292736d1b6176d82a58250001711220783771b7cd8110221784049f5a1aba5ca85f660433233adb67f2045f1c05af72a4616b47773332356332346170181c6174d82a58250001711220f597936ae0b3636bcd64599dce397d33bcd1d0983af996b5ed02bdad5a6234156176d82a5825000171122009a988e6d9558a6e503e6f3194693953308be2fcbbb8831147b062b308cb291aa4616b497533366f62716332346170181a6174d82a58250001711220d5aa58f18245f4332affc4ce8fad050370013160f764027ea5897184caeb62446176d82a582500017112208e3047b78dad736d03697eedf8f49570c614c4e49cb89d86bd85d8351436e15d616cd82a58250001711220876175f10e6458ab735dbacf697d9caacec33486bc4a633be553fd43531012f5"
@@ -52,25 +52,23 @@ contract TreeTest is Test {
         TreeCbor.readTree(nodeCbors);
     }
 
-    function test_getCid_only() public view {
-        (bool nodePresent, uint nodeIndex) = TreeCbor.hasCid(tree, rootCid);
-        TreeNodeCbor.TreeNode memory node = tree.nodes[nodeIndex];
+    function test_hasCid_only() public view {
+        (bool nodePresent,) = TreeCbor.hasCid(tree, rootCid);
+        require(nodePresent);
     }
 
     function test_getCid_valid() public view {
         (bool nodePresent, uint nodeIndex) = TreeCbor.hasCid(tree, rootCid);
-        TreeNodeCbor.TreeNode memory node = tree.nodes[nodeIndex];
+        console.log("node index", nodeIndex);
         require(nodePresent);
         TreeNodeCbor.TreeNode memory rootNode = tree.nodes[nodeIndex];
-        CidCbor.Cid leftCid = rootNode.left;
-        require(CidCbor.Cid.unwrap(leftCid) == correctLeftCidBytes, "left cid incorrect");
-        console.log("node index", nodeIndex);
-        console.log("node.left index", CidCbor.Cid.unwrap(rootNode.left));
+        require(rootNode.left == expectLeftCid, "expected left cid");
+        console.log("node.left", Cid.unwrap(rootNode.left));
         console.log("node.entries length", rootNode.entries.length);
     }
 
     function test_verifyInclusion_only() public view {
         bool result = TreeCbor.verifyInclusion(tree, rootCid, targetRecord, "app.bsky.feed.post/3laydu3mgac2v");
-        console.log("Verify Inclusion %s", result);
+        require(result, "inclusion");
     }
 }

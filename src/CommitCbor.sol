@@ -11,9 +11,9 @@ library CommitCbor {
     struct Commit {
         string did;
         uint8 version;
-        CidCbor.Cid data;
+        Cid data;
         string rev;
-        CidCbor.Cid prev;
+        Cid prev;
     }
 
     function readCommit(bytes memory cborData, uint byteIdx) internal pure returns (Commit memory ret, uint) {

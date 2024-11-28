@@ -10,16 +10,16 @@ library TreeCbor {
 
     struct Tree {
         TreeNodeCbor.TreeNode[] nodes;
-        CidCbor.Cid[] cids;
+        Cid[] cids;
     }
 
     function _readTree(bytes[] memory cborData) internal pure returns (Tree memory) {
         require(cborData.length > 0, "Tree must contain nodes");
         TreeNodeCbor.TreeNode[] memory nodes = new TreeNodeCbor.TreeNode[](cborData.length);
-        CidCbor.Cid[] memory cids = new CidCbor.Cid[](cborData.length);
+        Cid[] memory cids = new Cid[](cborData.length);
 
         for (uint i = 0; i < cborData.length; i++) {
-            cids[i] = CidCbor.Cid.wrap(uint256(sha256(cborData[i])));
+            cids[i] = Cid.wrap(uint256(sha256(cborData[i])));
             uint byteIdx;
             (nodes[i], byteIdx) = TreeNodeCbor.readTreeNode(cborData[i], 0);
             require(byteIdx == cborData[i].length, "expected to read all bytes");
@@ -32,14 +32,13 @@ library TreeCbor {
         return validTree(_readTree(cborData));
     }
 
-    function hasCid(Tree memory tree, CidCbor.Cid cid) internal pure returns (bool, uint) {
+    function hasCid(Tree memory tree, Cid cid) internal pure returns (bool, uint) {
         return _hasCid(tree, cid, 0);
     }
 
-    function _hasCid(Tree memory tree, CidCbor.Cid cid, uint startIdx) internal pure returns (bool, uint) {
-        uint256 index = CidCbor.Cid.unwrap(cid);
+    function _hasCid(Tree memory tree, Cid cid, uint startIdx) internal pure returns (bool, uint) {
         for (uint i = startIdx; i < tree.cids.length; i++) {
-            if (CidCbor.Cid.unwrap(tree.cids[i]) == index) {
+            if (tree.cids[i] == cid) {
                 return (true, i);
             }
         }
@@ -48,29 +47,23 @@ library TreeCbor {
 
     function validTree(Tree memory tree) internal pure returns (Tree memory) {
         for (uint i = 0; i < tree.cids.length; i++) {
-            uint256 thisCid = CidCbor.Cid.unwrap(tree.cids[i]);
             for (uint j = i + 1; j < tree.nodes.length; j++) {
-                uint256 otherCid = CidCbor.Cid.unwrap(tree.cids[j]);
-                require(thisCid != otherCid, "node cids must be unique");
+                require(tree.cids[i] != tree.cids[j], "node cids must be unique");
             }
         }
         return tree;
     }
 
-    function memPop(CidCbor.Cid[] memory arr) internal pure returns (CidCbor.Cid[] memory) {
-        CidCbor.Cid[] memory newArr = new CidCbor.Cid[](arr.length - 1);
+    function memPop(Cid[] memory arr) internal pure returns (Cid[] memory) {
+        Cid[] memory newArr = new Cid[](arr.length - 1);
         for (uint i = 1; i < arr.length; i++) {
             newArr[i - 1] = arr[i];
         }
         return newArr;
     }
 
-    function memCat(CidCbor.Cid[] memory arr1, CidCbor.Cid[] memory arr2)
-        internal
-        pure
-        returns (CidCbor.Cid[] memory)
-    {
-        CidCbor.Cid[] memory newArr = new CidCbor.Cid[](arr1.length + arr2.length);
+    function memCat(Cid[] memory arr1, Cid[] memory arr2) internal pure returns (Cid[] memory) {
+        Cid[] memory newArr = new Cid[](arr1.length + arr2.length);
         for (uint i = 0; i < arr1.length; i++) {
             newArr[i] = arr1[i];
         }
@@ -82,19 +75,19 @@ library TreeCbor {
 
     function verifyInclusion(
         TreeCbor.Tree memory tree,
-        CidCbor.Cid entryCid,
+        Cid entryCid,
         bytes memory targetRecord,
         string memory targetKey
     ) internal pure returns (bool) {
-        CidCbor.Cid[] memory rightWalk;
-        CidCbor.Cid currentCid;
+        Cid[] memory rightWalk;
+        Cid currentCid;
         TreeNodeCbor.TreeNode memory currentNode;
         uint currentIndex;
         bool found = false;
         bool hasCurrent = false;
 
-        CidCbor.Cid targetCid = CidCbor.Cid.wrap(uint256(sha256(targetRecord)));
-        CidCbor.Cid[] memory queue = new CidCbor.Cid[](1);
+        Cid targetCid = Cid.wrap(uint256(sha256(targetRecord)));
+        Cid[] memory queue = new Cid[](1);
         queue[0] = entryCid;
 
         while (queue.length > 0) {
@@ -106,15 +99,12 @@ library TreeCbor {
             }
             currentNode = tree.nodes[currentIndex];
 
-            rightWalk = new CidCbor.Cid[](currentNode.entries.length);
+            rightWalk = new Cid[](currentNode.entries.length);
 
             for (uint i = 0; i < currentNode.entries.length; i++) {
                 rightWalk[i] = currentNode.entries[i].tree;
                 if (keccak256(abi.encode(currentNode.entries[i].key)) == keccak256(abi.encode(targetKey))) {
-                    require(
-                        CidCbor.Cid.unwrap(currentNode.entries[i].value) == CidCbor.Cid.unwrap(targetCid),
-                        "cid mismatch"
-                    );
+                    require(currentNode.entries[i].value == targetCid, "cid mismatch");
                     require(!found, "duplicate entry");
                     found = true;
                 }

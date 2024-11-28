@@ -7,21 +7,21 @@ library TreeNodeCbor {
     using CBORDecoder for bytes;
 
     struct TreeNode {
-        CidCbor.Cid left;
+        Cid left;
         TreeNodeEntry[] entries;
     }
 
     struct TreeNodeEntry {
         string key;
-        CidCbor.Cid value;
-        CidCbor.Cid tree;
+        Cid value;
+        Cid tree;
     }
 
     struct TreeNodeE {
         uint8 p; // prefixlen
         bytes k; // keysuffix
-        CidCbor.Cid v; // value
-        CidCbor.Cid t; // tree
+        Cid v; // value
+        Cid t; // tree
     }
 
     function readNodeE(bytes memory cborData, uint byteIdx) internal pure returns (TreeNodeE[] memory, uint) {
@@ -44,8 +44,8 @@ library TreeNodeCbor {
 
         uint8 p;
         bytes memory k;
-        CidCbor.Cid v;
-        CidCbor.Cid t;
+        Cid v;
+        Cid t;
 
         for (uint i = 0; i < mapLen; i++) {
             bytes1 mapKey;

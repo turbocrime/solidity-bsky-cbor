@@ -3,6 +3,22 @@ pragma solidity ^0.8.28;
 
 import "./CborDecode.sol";
 
+using {cidEq as ==, cidNeq as !=} for Cid global;
+
+/**
+ * we will only encounter Cid v1 dag-cbor sha256, so the entire hash is 32
+ * bytes and will fit in a uint256
+ */
+type Cid is uint256;
+
+function cidEq(Cid a, Cid b) pure returns (bool) {
+    return Cid.unwrap(a) == Cid.unwrap(b);
+}
+
+function cidNeq(Cid a, Cid b) pure returns (bool) {
+    return Cid.unwrap(a) != Cid.unwrap(b);
+}
+
 library CidCbor {
     using CBORDecoder for bytes;
 
@@ -13,12 +29,6 @@ library CidCbor {
     uint8 private constant MULTICODEC_DAG_CBOR = 0x71;
     uint8 private constant MULTIHASH_SHA_256 = 0x12;
     uint8 private constant MULTIHASH_SIZE_32 = 0x20;
-
-    /**
-     * we will only encounter Cid v1 dag-cbor sha256, so the entire hash is 32
-     * bytes and will fit in a uint256
-     */
-    type Cid is uint256;
 
     function expectTagCid(bytes memory cborData, uint byteIdx) internal pure returns (uint) {
         uint8 head = uint8(cborData[byteIdx]);
