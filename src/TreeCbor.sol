@@ -110,8 +110,11 @@ library TreeCbor {
 
             for (uint i = 0; i < currentNode.entries.length; i++) {
                 rightWalk[i] = currentNode.entries[i].tree;
-                // TODO: match on key lol
-                if (CidCbor.Cid.unwrap(currentNode.entries[i].value) == CidCbor.Cid.unwrap(targetCid)) {
+                if (keccak256(abi.encode(currentNode.entries[i].key)) == keccak256(abi.encode(targetKey))) {
+                    require(
+                        CidCbor.Cid.unwrap(currentNode.entries[i].value) == CidCbor.Cid.unwrap(targetCid),
+                        "cid mismatch"
+                    );
                     require(!found, "duplicate entry");
                     found = true;
                 }
