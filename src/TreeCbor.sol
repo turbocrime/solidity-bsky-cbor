@@ -15,7 +15,7 @@ struct Tree {
 using {TreeCbor.verifyInclusion, TreeCbor.has, TreeCbor.get} for Tree global;
 
 library TreeCbor {
-    using CBORDecoder for bytes;
+    using CborDecode for bytes;
 
     function readTree(bytes[] memory cborData) internal pure returns (Tree memory) {
         return uniqueCids(readNodes(cborData));

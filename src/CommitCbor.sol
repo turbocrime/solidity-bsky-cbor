@@ -13,7 +13,7 @@ struct Commit {
 } // forgefmt: disable-line
 
 library CommitCbor {
-    using CBORDecoder for bytes;
+    using CborDecode for bytes;
 
     uint8 private constant COMMIT_VERSION = 3;
     uint8 private constant SIG_V = 1 + 27;

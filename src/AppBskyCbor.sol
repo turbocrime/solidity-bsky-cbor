@@ -8,7 +8,7 @@ struct AppBskyFeedPost {
 }
 
 library AppBsky {
-    using CBORDecoder for bytes;
+    using CborDecode for bytes;
 
     bytes19 private constant nsidFeedPost = "app.bsky.feed.post";
 

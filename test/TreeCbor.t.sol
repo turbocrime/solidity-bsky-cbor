@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-pragma solidity ^0.8.17;
+pragma solidity ^0.8.28;
 
 import {Test, console} from "forge-std/Test.sol";
 import "../src/CborDecode.sol";
@@ -46,20 +46,17 @@ contract TreeTest is Test {
         tree = TreeCbor.readTree(nodeCbors);
     }
 
-    function test_readTree_only() public view {
+    function test_readTree() public view {
         TreeCbor.readTree(nodeCbors);
     }
 
-    function test_hasCid_only() public view {
+    function test_has() public view {
         (bool nodePresent,) = tree.has(rootCid);
         require(nodePresent);
     }
 
-    function test_getCid_valid() public view {
-        (bool nodePresent, uint nodeIndex) = tree.has(rootCid);
-        console.log("node index", nodeIndex);
-        require(nodePresent);
-        TreeNode memory rootNode = tree.nodes[nodeIndex];
+    function test_get() public view {
+        TreeNode memory rootNode = tree.get(rootCid);
         require(rootNode.left == expectLeftCid, "expected left cid");
         console.log("node.left", Cid.unwrap(rootNode.left));
         console.log("node.entries length", rootNode.entries.length);
@@ -67,8 +64,6 @@ contract TreeTest is Test {
 
     function test_verifyInclusion() public view {
         Cid includedCid = tree.verifyInclusion(rootCid, "app.bsky.feed.post/3laydu3mgac2v");
-        console.log("included cid");
-        console.logBytes32(bytes32(Cid.unwrap(includedCid)));
         require(includedCid.isFor(targetRecord), "inclusion");
     }
 }

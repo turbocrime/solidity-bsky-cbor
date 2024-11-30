@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-pragma solidity ^0.8.17;
+pragma solidity ^0.8.28;
 
 import {Test, console} from "forge-std/Test.sol";
 import "../src/CborDecode.sol";

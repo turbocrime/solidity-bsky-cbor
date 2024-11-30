@@ -16,20 +16,17 @@
  *
  */
 //
-// THIS CODE WAS SECURITY REVIEWED BY KUDELSKI SECURITY, BUT NOT FORMALLY AUDITED
-
 // SPDX-License-Identifier: Apache-2.0
-pragma solidity ^0.8.17;
+pragma solidity ^0.8.28;
 
 import {Test, console} from "forge-std/Test.sol";
 import "../src/CborDecode.sol";
 
-/// @notice This file is meant to serve as a deployable contract to test the cbor decode library
 /// @author Zondax AG
-contract CborDecodeTest {
-    using CBORDecoder for bytes;
+/// @author turbocrime
+contract CborDecodeTest is Test {
+    using CborDecode for bytes;
 
-    /*
     function test_decodeFixedArray() public pure {
         bytes memory input = hex"8F0102030405060708090A64746573744401010101F4F6F5";
         uint index = 0;
@@ -73,7 +70,6 @@ contract CborDecodeTest {
         (str, index) = input.readString(index);
         require(keccak256(abi.encodePacked(str)) == keccak256(abi.encodePacked("test")), "str is not 'test'");
     }
-    */
 
     function test_decodeFalse() public pure {
         bytes memory input = hex"f4";

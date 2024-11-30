@@ -15,7 +15,7 @@ struct TreeNodeEntry {
 }
 
 library TreeNodeCbor {
-    using CBORDecoder for bytes;
+    using CborDecode for bytes;
 
     struct TreeNodeE {
         uint8 p; // prefixlen

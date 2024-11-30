@@ -29,7 +29,7 @@ function isNull(Cid a) pure returns (bool) {
 }
 
 library CidCbor {
-    using CBORDecoder for bytes;
+    using CborDecode for bytes;
 
     // any CIDv1 DAG-CBOR sha-256 will always have this 9-byte header
     // ─────┬─────────

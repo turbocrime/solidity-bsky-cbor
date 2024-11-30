@@ -15,10 +15,9 @@
  *  limitations under the License.
  *
  */
-// THIS CODE WAS SECURITY REVIEWED BY KUDELSKI SECURITY, BUT NOT FORMALLY AUDITED
 
 // SPDX-License-Identifier: Apache-2.0
-pragma solidity ^0.8.17;
+pragma solidity ^0.8.28;
 
 uint8 constant shiftMajor = 5;
 uint8 constant maskMinor = 0x1f;
@@ -42,11 +41,10 @@ uint8 constant MinorTrue = 0x15;
 uint8 constant MinorNull = 0x16;
 uint8 constant MinorUndefined = 0x17;
 
-/// @notice This library is a set a functions that allows anyone to decode cbor encoded bytes
-/// @dev methods in this library try to read the data type indicated from cbor encoded data stored in bytes at a specific index
-/// @dev if it successes, methods will return the read value and the new index (intial index plus read bytes)
+/// @notice This library is a utility for decoding fields of a known CBOR schema, forked from filecoin CBOR code
 /// @author Zondax AG
-library CBORDecoder {
+/// @author turbocrime
+library CborDecode {
     function isNullNext(bytes memory cborData, uint byteIdx) internal pure returns (bool) {
         return uint8(cborData[byteIdx]) == MajorPrimitive << shiftMajor | MinorNull;
     }
