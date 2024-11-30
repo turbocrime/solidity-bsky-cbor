@@ -1,21 +1,21 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: Apache-2.0
 pragma solidity ^0.8.28;
 
 import "./CidCbor.sol";
 
+struct TreeNode {
+    Cid left;
+    TreeNodeEntry[] entries;
+}
+
+struct TreeNodeEntry {
+    string key;
+    Cid value;
+    Cid tree;
+}
+
 library TreeNodeCbor {
     using CBORDecoder for bytes;
-
-    struct TreeNode {
-        Cid left;
-        TreeNodeEntry[] entries;
-    }
-
-    struct TreeNodeEntry {
-        string key;
-        Cid value;
-        Cid tree;
-    }
 
     struct TreeNodeE {
         uint8 p; // prefixlen
@@ -24,7 +24,7 @@ library TreeNodeCbor {
         Cid t; // tree
     }
 
-    function readNodeE(bytes memory cborData, uint byteIdx) internal pure returns (TreeNodeE[] memory, uint) {
+    function readEArray(bytes memory cborData, uint byteIdx) internal pure returns (TreeNodeE[] memory, uint) {
         uint arrayLen;
         (arrayLen, byteIdx) = cborData.readFixedArray(byteIdx);
 
@@ -100,14 +100,14 @@ library TreeNodeCbor {
         uint mapLen;
         (mapLen, byteIdx) = cborData.readFixedMap(byteIdx);
         require(mapLen == 2, "expected 2 fields in node");
+        bytes1 mapKey;
         for (uint i = 0; i < mapLen; i++) {
-            bytes1 mapKey;
             (mapKey, byteIdx) = cborData.readStringBytes1(byteIdx);
             if (mapKey == "l") {
                 (node.left, byteIdx) = CidCbor.readNullableCid(cborData, byteIdx);
             } else if (mapKey == "e") {
                 TreeNodeE[] memory e;
-                (e, byteIdx) = readNodeE(cborData, byteIdx);
+                (e, byteIdx) = readEArray(cborData, byteIdx);
                 node.entries = buildEntryKeys(e);
             } else {
                 revert("unexpected node field");

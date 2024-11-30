@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: Apache-2.0
 pragma solidity ^0.8.17;
 
 import {Test, console} from "forge-std/Test.sol";
@@ -13,17 +13,15 @@ contract CommitCborTest {
         Cid.wrap(uint256(bytes32(hex"66da6655bf8da79b69a87299cf170fed8497fa3059379dc4a8bfe1e28cab5d93")));
 
     function test_readCommit_only() public pure {
-        CommitCbor.readCommit(rootCommitData, 0);
+        CommitCbor.readCommit(rootCommitData);
     }
 
     function test_readCommit_valid() public pure {
-        (CommitCbor.Commit memory commit, uint byteIdx) = CommitCbor.readCommit(rootCommitData, 0);
+        Commit memory commit = CommitCbor.readCommit(rootCommitData);
 
-        require(byteIdx == rootCommitData.length, "expected to read all bytes");
-        require(commit.version == 3, "expected version 3");
         require(bytes(commit.rev).length == 13, "expected rev to be 13 bytes");
         require(bytes(commit.did).length == 32, "expected did to be 32 bytes");
-        require(commit.data != Cid.wrap(0), "expected data cid to be non-null");
+        require(!commit.data.isNull(), "expected data cid to be non-null");
         require(commit.data == expectCommitDataCidHash, "expected cid hash");
     }
 }

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: Apache-2.0
 pragma solidity ^0.8.17;
 
 import {Test, console} from "forge-std/Test.sol";
@@ -16,7 +16,7 @@ contract TreeNodeCborTest is Test {
     TreeNodeCbor.TreeNodeE[] private e;
 
     function setUp() public {
-        (e,) = TreeNodeCbor.readNodeE(treeNodeBytes, 3);
+        (e,) = TreeNodeCbor.readEArray(treeNodeBytes, 3);
     }
 
     function test_readTreeNode_only() public pure {
@@ -24,15 +24,11 @@ contract TreeNodeCborTest is Test {
     }
 
     function test_readTreeNode_valid() public pure {
-        (TreeNodeCbor.TreeNode memory node, uint byteIdx) = TreeNodeCbor.readTreeNode(treeNodeBytes, 0);
+        (TreeNode memory node, uint byteIdx) = TreeNodeCbor.readTreeNode(treeNodeBytes, 0);
 
         require(byteIdx == treeNodeBytes.length, "expected to read all bytes");
         require(node.entries.length == 5, "expected 5 entries");
-        require(node.left != Cid.wrap(0), "expected left cid to be non-null");
-
-        Cid leftCid = node.left;
-
-        require(leftCid == expectLeftCid, "left sha");
+        require(node.left == expectLeftCid, "expected left sha");
         for (uint i = 0; i < node.entries.length; i++) {
             console.log("node entry %s", i);
             console.log("key", node.entries[i].key);
@@ -42,27 +38,10 @@ contract TreeNodeCborTest is Test {
     }
 
     function test_readNodeE_only() public pure {
-        TreeNodeCbor.readNodeE(treeNodeBytes, 3);
+        TreeNodeCbor.readEArray(treeNodeBytes, 3);
     }
 
     function test_buildEntryKeys_only() public view {
         TreeNodeCbor.buildEntryKeys(e);
-    }
-
-    function test_dummyEntryKeys() public view {
-        dummyEntryKeys(e);
-    }
-
-    // like buildEntryKeys but without the actual key rebuild
-    function dummyEntryKeys(TreeNodeCbor.TreeNodeE[] memory de)
-        internal
-        pure
-        returns (TreeNodeCbor.TreeNodeEntry[] memory)
-    {
-        TreeNodeCbor.TreeNodeEntry[] memory entries = new TreeNodeCbor.TreeNodeEntry[](de.length);
-        for (uint i = 0; i < de.length; i++) {
-            entries[i] = TreeNodeCbor.TreeNodeEntry(string(de[i].k), de[i].v, de[i].t);
-        }
-        return entries;
     }
 }
