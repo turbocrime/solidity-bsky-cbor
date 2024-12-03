@@ -1,3 +1,0 @@
-@ensdomains/buffer/=lib/buffer/
-forge-std/=lib/forge-std/src/
-solidity-cborutils/=lib/solidity-cborutils/contracts/
