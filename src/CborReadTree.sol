@@ -1,32 +1,33 @@
 // SPDX-License-Identifier: Apache-2.0
 pragma solidity ^0.8.28;
 
-import {console} from "forge-std/console.sol";
-import "./CborDecode.sol";
-import "./CidCbor.sol";
-import "./TreeNodeCbor.sol";
-import "./CommitCbor.sol";
+import "./CborRead.sol";
+import "./CborReadCid.sol";
+import "./CborReadTreeNode.sol";
+import "./CborReadCommit.sol";
+
+using CborRead for bytes;
+using CborReadCid for bytes;
+using CborReadTreeNode for bytes;
 
 struct Tree {
     TreeNode[] nodes;
-    Cid[] cids;
+    CidSha256[] cids;
 }
 
-using {TreeCbor.verifyInclusion, TreeCbor.has, TreeCbor.get} for Tree global;
+using {CborReadTree.verifyInclusion, CborReadTree.has, CborReadTree.get} for Tree global;
 
-library TreeCbor {
-    using CborDecode for bytes;
-
+library CborReadTree {
     function readTree(bytes[] memory cborData) internal pure returns (Tree memory) {
         return uniqueCids(readNodes(cborData));
     }
 
-    function has(Tree memory tree, Cid cid) internal pure returns (bool, uint) {
+    function has(Tree memory tree, CidSha256 cid) internal pure returns (bool, uint) {
         require(!cid.isNull(), "null cid is never in tree");
         return hasCid(tree, cid, 0);
     }
 
-    function get(Tree memory tree, Cid cid) internal pure returns (TreeNode memory) {
+    function get(Tree memory tree, CidSha256 cid) internal pure returns (TreeNode memory) {
         require(!cid.isNull(), "null cid is never in tree");
         return getCid(tree, cid, 0);
     }
@@ -34,12 +35,12 @@ library TreeCbor {
     function readNodes(bytes[] memory cborData) private pure returns (Tree memory) {
         require(cborData.length > 0, "Tree must contain nodes");
         TreeNode[] memory nodes = new TreeNode[](cborData.length);
-        Cid[] memory cids = new Cid[](cborData.length);
+        CidSha256[] memory cids = new CidSha256[](cborData.length);
 
         for (uint i = 0; i < cborData.length; i++) {
-            cids[i] = Cid.wrap(uint256(sha256(cborData[i])));
+            cids[i] = CidSha256.wrap(uint256(sha256(cborData[i])));
             uint byteIdx;
-            (nodes[i], byteIdx) = TreeNodeCbor.readTreeNode(cborData[i], 0);
+            (byteIdx, nodes[i]) = cborData[i].readTreeNode(0);
             require(byteIdx == cborData[i].length, "expected to read all bytes");
         }
 
@@ -55,7 +56,7 @@ library TreeCbor {
         return tree;
     }
 
-    function hasCid(Tree memory tree, Cid cid, uint startIdx) private pure returns (bool, uint) {
+    function hasCid(Tree memory tree, CidSha256 cid, uint startIdx) private pure returns (bool, uint) {
         if (cid.isNull()) {
             return (false, 0);
         }
@@ -67,22 +68,22 @@ library TreeCbor {
         return (false, 0);
     }
 
-    function getCid(Tree memory tree, Cid cid, uint startIdx) private pure returns (TreeNode memory) {
+    function getCid(Tree memory tree, CidSha256 cid, uint startIdx) private pure returns (TreeNode memory) {
         (bool present, uint idx) = hasCid(tree, cid, startIdx);
         require(present, "cid not found in tree");
         return tree.nodes[idx];
     }
 
-    function memPop(Cid[] memory arr) private pure returns (Cid[] memory) {
-        Cid[] memory newArr = new Cid[](arr.length - 1);
+    function memPop(CidSha256[] memory arr) private pure returns (CidSha256[] memory) {
+        CidSha256[] memory newArr = new CidSha256[](arr.length - 1);
         for (uint i = 1; i < arr.length; i++) {
             newArr[i - 1] = arr[i];
         }
         return newArr;
     }
 
-    function memCat(Cid[] memory arr1, Cid[] memory arr2) private pure returns (Cid[] memory) {
-        Cid[] memory newArr = new Cid[](arr1.length + arr2.length);
+    function memCat(CidSha256[] memory arr1, CidSha256[] memory arr2) private pure returns (CidSha256[] memory) {
+        CidSha256[] memory newArr = new CidSha256[](arr1.length + arr2.length);
         for (uint i = 0; i < arr1.length; i++) {
             newArr[i] = arr1[i];
         }
@@ -96,15 +97,18 @@ library TreeCbor {
         return keccak256(abi.encode(key1)) == keccak256(abi.encode(key2));
     }
 
-    function verifyInclusion(Tree memory tree, Cid rootCid, string memory targetKey) internal pure returns (Cid) {
-        Cid[] memory rightWalk;
-        Cid currentCid;
+    function verifyInclusion(Tree memory tree, CidSha256 rootCid, string memory targetKey)
+        internal
+        pure
+        returns (CidSha256)
+    {
+        CidSha256 currentCid;
         TreeNode memory currentNode;
         uint currentIndex;
-        Cid targetCid;
+        CidSha256 targetCid;
         bool hasCurrent = false;
 
-        Cid[] memory queue = new Cid[](1);
+        CidSha256[] memory queue = new CidSha256[](1);
         queue[0] = rootCid;
 
         while (queue.length > 0) {
@@ -117,7 +121,7 @@ library TreeCbor {
             }
             currentNode = tree.nodes[currentIndex];
 
-            rightWalk = new Cid[](currentNode.entries.length);
+            CidSha256[] memory rightWalk = new CidSha256[](currentNode.entries.length);
 
             for (uint i = 0; i < currentNode.entries.length; i++) {
                 rightWalk[i] = currentNode.entries[i].tree;

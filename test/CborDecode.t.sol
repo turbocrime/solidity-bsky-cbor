@@ -19,8 +19,8 @@
 // SPDX-License-Identifier: Apache-2.0
 pragma solidity ^0.8.28;
 
-import {Test, console} from "forge-std/Test.sol";
-import "../src/CborDecode.sol";
+import {Test} from "forge-std/Test.sol";
+import "./CborDecode.sol";
 
 /// @author Zondax AG
 /// @author turbocrime
@@ -133,9 +133,7 @@ contract CborDecodeTest is Test {
         uint arrayLen = 0;
         uint8 num;
 
-        console.log("reading fixed array");
         (arrayLen, index) = input.readFixedArray(index);
-        console.log("arrayLen", arrayLen);
         require(arrayLen == 5, "array len is not 5");
 
         (num, index) = input.readUInt8(index);

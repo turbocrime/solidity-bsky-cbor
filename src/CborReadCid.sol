@@ -1,36 +1,36 @@
 // SPDX-License-Identifier: Apache-2.0
 pragma solidity ^0.8.28;
 
-import "./CborDecode.sol";
-
-using {cidEq as ==, cidNeq as !=, isNull, isFor} for Cid global;
+using {cidEq as ==, cidNeq as !=, isNull, isFor} for CidSha256 global;
 
 // we will only encounter CID v1 dag-cbor sha256, and sha256 fits a uint256.
 // some CID fields may be nullable, so the zero value identifies a 'null' CID.
-type Cid is uint256;
+type CidSha256 is uint256;
 
-function cidEq(Cid a, Cid b) pure returns (bool) {
-    require(Cid.unwrap(a) != 0 && Cid.unwrap(b) != 0, "Invalid CID comparison: null CID");
-    return Cid.unwrap(a) == Cid.unwrap(b);
+function cidEq(CidSha256 a, CidSha256 b) pure returns (bool) {
+    require(CidSha256.unwrap(a) != 0 && CidSha256.unwrap(b) != 0, "Invalid CID comparison: null CID");
+    return CidSha256.unwrap(a) == CidSha256.unwrap(b);
 }
 
-function cidNeq(Cid a, Cid b) pure returns (bool) {
+function cidNeq(CidSha256 a, CidSha256 b) pure returns (bool) {
     return !cidEq(a, b);
 }
 
-function isFor(Cid a, bytes memory b) pure returns (bool) {
-    require(Cid.unwrap(a) != 0, "Invalid CID check: null CID");
+function isFor(CidSha256 a, bytes memory b) pure returns (bool) {
+    require(CidSha256.unwrap(a) != 0, "Invalid CID check: null CID");
     require(b.length != 0, "Invalid CID check: no content");
-    return Cid.unwrap(a) == uint256(sha256(b));
+    return CidSha256.unwrap(a) == uint256(sha256(b));
 }
 
-function isNull(Cid a) pure returns (bool) {
-    return Cid.unwrap(a) == 0;
+function isNull(CidSha256 a) pure returns (bool) {
+    return CidSha256.unwrap(a) == 0;
 }
 
-library CidCbor {
-    using CborDecode for bytes;
+import "./CborRead.sol";
 
+using CborRead for bytes;
+
+library CborReadCid {
     // any CIDv1 DAG-CBOR sha-256 will always have this 9-byte header
     // ─────┬─────────
     //  hex │ meaning
@@ -45,8 +45,7 @@ library CidCbor {
     //   12 │ multihash type sha-256
     //   20 │ multihash size 32 bytes
     // ─────┴─────────
-    bytes4 private constant cbor_tag42_bytes37 = hex"D82A5825";
-    bytes5 private constant multibase_cidv1_dagcbor_sha256 = hex"0001711220";
+    bytes9 private constant cbor_tag42_bytes37_multibase_cidv1_dagcbor_sha256 = hex"D82A58250001711220";
 
     /**
      * @notice Reads a CIDv1 DAG-CBOR sha-256 from CBOR encoded data at the specified byte index
@@ -56,48 +55,45 @@ library CidCbor {
      *      - The CBOR header is not tag 42 with 37-byte item
      *      - The multibase header is not CIDv1 DAG-CBOR sha256
      *      - The hash value is zero
-     * @param cborData The CBOR encoded byte array containing the CID
-     * @param byteIdx The starting index in the byte array to read from
      * @return Cid The decoded CID
      * @return uint The next byte index after the CID
      */
-    function readCid(bytes memory cborData, uint byteIdx) internal pure returns (Cid, uint) {
-        bytes4 cborHead;
-        bytes5 multibaseHead;
+    function Cid(bytes memory cbor, uint i) internal pure returns (uint, CidSha256) {
+        bytes9 multibaseCborHead;
         uint256 cidSha256; // 32 bytes
 
-        require(byteIdx + 4 + 5 + 32 <= cborData.length, "Expected CID size is out of range");
+        cbor.requireRange(i, multibaseCborHead.length + 32);
 
         assembly ("memory-safe") {
             // cbor header at index
-            cborHead := mload(add(cborData, add(0x20, byteIdx)))
-            // multibase header at index + cbor header
-            multibaseHead := mload(add(cborData, add(0x20, add(4, byteIdx))))
+            multibaseCborHead := mload(add(cbor, add(0x20, i)))
             // cid hash at index + cbor header + multibase header
-            cidSha256 := mload(add(cborData, add(0x20, add(9, byteIdx))))
+            cidSha256 := mload(add(cbor, add(0x20, add(9, i))))
         }
 
-        require(cborHead == cbor_tag42_bytes37, "Expected CBOR tag 42 and 37-byte item");
-        require(multibaseHead == multibase_cidv1_dagcbor_sha256, "Expected multibase CIDv1 DAG-CBOR sha256");
+        require(
+            multibaseCborHead == cbor_tag42_bytes37_multibase_cidv1_dagcbor_sha256,
+            "Expected CBOR tag 42 and 37-byte item containing multibase CIDv1 DAG-CBOR sha256"
+        );
         require(cidSha256 != 0, "Expected non-zero sha256 hash");
 
-        return (Cid.wrap(cidSha256), byteIdx + 4 + 5 + 32);
+        i += multibaseCborHead.length + 32;
+
+        return (i, CidSha256.wrap(cidSha256));
     }
 
     /**
      * @notice Reads a CID that may be null from CBOR encoded data at the specified byte index
      * @dev If a CBOR null primitive appears at the byte index, the byte index
      *      is advanced appropriately and this function returns a 'zero' CID.
-     * @param cborData The CBOR bytes containing the CID or null
-     * @param byteIdx The starting index to read from
      * @return Cid The decoded CID, or zero CID if null
      * @return uint The next byte index after the CID or null value
      */
-    function readNullableCid(bytes memory cborData, uint byteIdx) internal pure returns (Cid, uint) {
-        if (cborData.isNullNext(byteIdx)) {
-            return (Cid.wrap(0), byteIdx + 1);
+    function NullableCid(bytes memory cbor, uint i) internal pure returns (uint, CidSha256) {
+        if (cbor.isNull(i)) {
+            return (i + 1, CidSha256.wrap(0));
         } else {
-            return readCid(cborData, byteIdx);
+            return CborReadCid.Cid(cbor, i);
         }
     }
 }

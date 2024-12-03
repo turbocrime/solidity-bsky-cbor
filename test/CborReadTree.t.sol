@@ -2,18 +2,22 @@
 pragma solidity ^0.8.28;
 
 import {Test, console} from "forge-std/Test.sol";
-import "../src/CborDecode.sol";
-import "../src/TreeCbor.sol";
-import "../src/TreeNodeCbor.sol";
-import "../src/CommitCbor.sol";
+import "../src/CborReadTree.sol";
+import "../src/CborReadTreeNode.sol";
+import "../src/CborReadCommit.sol";
+import "../src/CborReadCid.sol";
 
-contract TreeTest is Test {
+using CborRead for bytes;
+using CborReadCid for bytes;
+using CborReadTreeNode for bytes;
+
+contract CborReadTreeTest is Test {
     //bytes memory rootCborWithSig = hex"a66364696478206469643a706c633a6d74713365346d67743777796a6868616e69657a656a3637637265766d336c61796b6c746f7370323271637369675840d395a8c48c851c0ae8abe772d9fc33cac0619709ca2bcc5b60f7ff9e6ff7bf8363f68f57c10e0277403e800c5b9fd7c448f9816bf4ab878fd8148ceb24ef520b6464617461d82a5825000171122066da6655bf8da79b69a87299cf170fed8497fa3059379dc4a8bfe1e28cab5d936470726576f66776657273696f6e03";
     //bytes memory rootSig = hex"D395A8C48C851C0AE8ABE772D9FC33CAC0619709CA2BCC5B60F7FF9E6FF7BF8363F68F57C10E0277403E800C5B9FD7C448F9816BF4AB878FD8148CEB24EF520B";
     bytes public constant rootCborWithoutSig =
         hex"A56364696478206469643A706C633A6D74713365346D67743777796A6868616E69657A656A3637637265766D336C61796B6C746F73703232716464617461D82A5825000171122066DA6655BF8DA79B69A87299CF170FED8497FA3059379DC4A8BFE1E28CAB5D936470726576F66776657273696F6E03";
-    Cid private constant expectLeftCid =
-        Cid.wrap(uint256(bytes32(hex"6E7335ED248EDAE3ED49D47B88A5FCAD2985E15F416F8AE23A49DFC1231AEB91")));
+    CidSha256 private constant expectLeftCid =
+        CidSha256.wrap(uint256(bytes32(hex"6E7335ED248EDAE3ED49D47B88A5FCAD2985E15F416F8AE23A49DFC1231AEB91")));
 
     bytes private constant targetRecord =
         hex"a4647465787478196361722066696c65732063616e6e6f74206875727420796f75652474797065726170702e62736b792e666565642e706f7374656c616e67738162656e696372656174656441747818323032342d31312d31355431323a31303a33322e3031345a";
@@ -22,8 +26,8 @@ contract TreeTest is Test {
     //Cid private constant recordIdx = Cid.wrap(recordCidBytes);
 
     Commit private rootCommit;
-    Cid private rootCid;
-    Cid private wrongRootCid;
+    CidSha256 private rootCid;
+    CidSha256 private wrongRootCid;
     bytes[] private nodeCbors = [
         bytes(
             hex"a2616584a4616b58236170702e62736b792e67726170682e666f6c6c6f772f336b77767473726366736332346170006174d82a58250001711220232061c4165ce246d7f0b997b4a4212a0355faadf93fdecd64fca89db1d7bd9e6176d82a58250001711220181c3cddd15732e2a37c4455038c71ba75c1d5ca1850f78086d7bf29b490f7cba4616b487470346b797332346170181b6174d82a5825000171122096273e2ef4796b720c8e9f12292dfde8ce593a898ddd3c4c8d6d94c292736d1b6176d82a58250001711220783771b7cd8110221784049f5a1aba5ca85f660433233adb67f2045f1c05af72a4616b47773332356332346170181c6174d82a58250001711220f597936ae0b3636bcd64599dce397d33bcd1d0983af996b5ed02bdad5a6234156176d82a5825000171122009a988e6d9558a6e503e6f3194693953308be2fcbbb8831147b062b308cb291aa4616b497533366f62716332346170181a6174d82a58250001711220d5aa58f18245f4332affc4ce8fad050370013160f764027ea5897184caeb62446176d82a582500017112208e3047b78dad736d03697eedf8f49570c614c4e49cb89d86bd85d8351436e15d616cd82a58250001711220876175f10e6458ab735dbacf697d9caacec33486bc4a633be553fd43531012f5"
@@ -41,13 +45,13 @@ contract TreeTest is Test {
     Tree private tree;
 
     function setUp() public {
-        rootCommit = CommitCbor.readCommit(TreeTest.rootCborWithoutSig);
+        (, rootCommit) = CborReadCommit.UnsafeCommit(rootCborWithoutSig, 0);
         rootCid = rootCommit.data;
-        tree = TreeCbor.readTree(nodeCbors);
+        tree = CborReadTree.readTree(nodeCbors);
     }
 
     function test_readTree() public view {
-        TreeCbor.readTree(nodeCbors);
+        CborReadTree.readTree(nodeCbors);
     }
 
     function test_has() public view {
@@ -58,12 +62,12 @@ contract TreeTest is Test {
     function test_get() public view {
         TreeNode memory rootNode = tree.get(rootCid);
         require(rootNode.left == expectLeftCid, "expected left cid");
-        console.log("node.left", Cid.unwrap(rootNode.left));
+        console.log("node.left", CidSha256.unwrap(rootNode.left));
         console.log("node.entries length", rootNode.entries.length);
     }
 
     function test_verifyInclusion() public view {
-        Cid includedCid = tree.verifyInclusion(rootCid, "app.bsky.feed.post/3laydu3mgac2v");
+        CidSha256 includedCid = tree.verifyInclusion(rootCid, "app.bsky.feed.post/3laydu3mgac2v");
         require(includedCid.isFor(targetRecord), "inclusion");
     }
 }

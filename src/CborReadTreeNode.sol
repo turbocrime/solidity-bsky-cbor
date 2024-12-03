@@ -1,69 +1,70 @@
 // SPDX-License-Identifier: Apache-2.0
 pragma solidity ^0.8.28;
 
-import "./CidCbor.sol";
+import "./CborReadCid.sol";
+
+using CborRead for bytes;
+using CborReadCid for bytes;
 
 struct TreeNode {
-    Cid left;
+    CidSha256 left;
     TreeNodeEntry[] entries;
 }
 
 struct TreeNodeEntry {
     string key;
-    Cid value;
-    Cid tree;
+    CidSha256 value;
+    CidSha256 tree;
 }
 
-library TreeNodeCbor {
-    using CborDecode for bytes;
-
+library CborReadTreeNode {
     struct TreeNodeE {
         uint8 p; // prefixlen
         bytes k; // keysuffix
-        Cid v; // value
-        Cid t; // tree
+        CidSha256 v; // value
+        CidSha256 t; // tree
     }
 
-    function readEArray(bytes memory cborData, uint byteIdx) internal pure returns (TreeNodeE[] memory, uint) {
+    function readEArray(bytes memory cborData, uint byteIdx) internal pure returns (uint, TreeNodeE[] memory) {
         uint arrayLen;
-        (arrayLen, byteIdx) = cborData.readFixedArray(byteIdx);
+        (byteIdx, arrayLen) = cborData.Array(byteIdx);
 
         TreeNodeE[] memory ret = new TreeNodeE[](arrayLen);
         for (uint i = 0; i < arrayLen; i++) {
-            (ret[i], byteIdx) = readE(cborData, byteIdx);
+            (byteIdx, ret[i]) = readE(cborData, byteIdx);
         }
 
-        return (ret, byteIdx);
+        return (byteIdx, ret);
     }
 
-    function readE(bytes memory cborData, uint byteIdx) internal pure returns (TreeNodeE memory, uint) {
+    function readE(bytes memory cborData, uint byteIdx) internal pure returns (uint, TreeNodeE memory) {
         uint mapLen;
-        (mapLen, byteIdx) = cborData.readFixedMap(byteIdx);
+        (byteIdx, mapLen) = cborData.Map(byteIdx);
 
         require(mapLen == 4, "expected 4 fields in node entry");
 
         uint8 p;
         bytes memory k;
-        Cid v;
-        Cid t;
+        CidSha256 v;
+        CidSha256 t;
 
         for (uint i = 0; i < mapLen; i++) {
-            bytes1 mapKey;
-            (mapKey, byteIdx) = cborData.readStringBytes1(byteIdx);
-            if (mapKey == "p") {
-                (p, byteIdx) = cborData.readUInt8(byteIdx);
-            } else if (mapKey == "k") {
-                (k, byteIdx) = cborData.readBytes(byteIdx);
-            } else if (mapKey == "t") {
-                (t, byteIdx) = CidCbor.readNullableCid(cborData, byteIdx);
-            } else if (mapKey == "v") {
-                (v, byteIdx) = CidCbor.readNullableCid(cborData, byteIdx);
+            bytes32 mapKey;
+            (byteIdx, mapKey,) = cborData.String32(byteIdx, 1);
+            if (bytes1(mapKey) == "p") {
+                (byteIdx, p) = cborData.UInt8(byteIdx);
+            } else if (bytes1(mapKey) == "k") {
+                (byteIdx, k) = cborData.Bytes(byteIdx);
+            } else if (bytes1(mapKey) == "t") {
+                (byteIdx, t) = cborData.NullableCid(byteIdx);
+            } else if (bytes1(mapKey) == "v") {
+                (byteIdx, v) = cborData.NullableCid(byteIdx);
             } else {
                 revert("unexpected node entry field");
             }
         }
 
-        return (TreeNodeE(p, k, v, t), byteIdx);
+        return (byteIdx, TreeNodeE(p, k, v, t));
     }
 
     function sliceCat(bytes memory prefix, uint8 slice, bytes memory append) internal pure returns (bytes memory cat) {
@@ -96,23 +97,23 @@ library TreeNodeCbor {
         return entries;
     }
 
-    function readTreeNode(bytes memory cborData, uint byteIdx) internal pure returns (TreeNode memory node, uint) {
+    function readTreeNode(bytes memory cborData, uint byteIdx) internal pure returns (uint, TreeNode memory node) {
         uint mapLen;
-        (mapLen, byteIdx) = cborData.readFixedMap(byteIdx);
+        (byteIdx, mapLen) = cborData.Map(byteIdx);
         require(mapLen == 2, "expected 2 fields in node");
-        bytes1 mapKey;
+        bytes32 mapKey;
         for (uint i = 0; i < mapLen; i++) {
-            (mapKey, byteIdx) = cborData.readStringBytes1(byteIdx);
-            if (mapKey == "l") {
-                (node.left, byteIdx) = CidCbor.readNullableCid(cborData, byteIdx);
-            } else if (mapKey == "e") {
+            (byteIdx, mapKey,) = cborData.String32(byteIdx, 1);
+            if (bytes1(mapKey) == "l") {
+                (byteIdx, node.left) = cborData.NullableCid(byteIdx);
+            } else if (bytes1(mapKey) == "e") {
                 TreeNodeE[] memory e;
-                (e, byteIdx) = readEArray(cborData, byteIdx);
+                (byteIdx, e) = readEArray(cborData, byteIdx);
                 node.entries = buildEntryKeys(e);
             } else {
                 revert("unexpected node field");
             }
         }
-        return (node, byteIdx);
+        return (byteIdx, node);
     }
 }

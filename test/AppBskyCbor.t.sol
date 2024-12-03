@@ -2,7 +2,7 @@
 pragma solidity ^0.8.28;
 
 import {Test, console} from "forge-std/Test.sol";
-import "../src/CborDecode.sol";
+import "../src/CborRead.sol";
 import "../src/AppBskyCbor.sol";
 
 contract AppBskyCborTest is Test {

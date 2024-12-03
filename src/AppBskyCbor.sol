@@ -1,57 +1,62 @@
 // SPDX-License-Identifier: Apache-2.0
 pragma solidity ^0.8.28;
 
-import "./CidCbor.sol";
+import {console} from "forge-std/console.sol";
+import "./CborRead.sol";
+import "./CborReadCid.sol";
+
+using CborRead for bytes;
+using CborReadCid for bytes;
 
 struct AppBskyFeedPost {
     string text;
 }
 
 library AppBsky {
-    using CborDecode for bytes;
-
-    bytes19 private constant nsidFeedPost = "app.bsky.feed.post";
+    bytes18 private constant nsidFeedPost = "app.bsky.feed.post";
 
     function FeedPost(bytes memory cborData) internal pure returns (AppBskyFeedPost memory feedPost) {
         uint byteIdx = 0;
-        (feedPost.text, byteIdx) = FeedPost(cborData, byteIdx);
-        require(byteIdx == cborData.length, "expected to read all bytes");
+        (byteIdx, feedPost.text) = FeedPost(cborData, byteIdx);
+        cborData.requireComplete(byteIdx);
         return feedPost;
     }
 
-    function FeedPost(bytes memory cborData, uint byteIdx) internal pure returns (string memory feedPostText, uint) {
+    function FeedPost(bytes memory cborData, uint byteIdx) internal pure returns (uint, string memory feedPostText) {
         uint mapLen;
-        (mapLen, byteIdx) = cborData.readFixedMap(byteIdx);
+        (byteIdx, mapLen) = cborData.Map(byteIdx);
 
         require(mapLen == 4, "expected 4 fields in `app.bsky.feed.post` record");
 
-        bytes9 mapKey;
+        bytes32 mapKey;
+        uint8 mapKeyLen;
         for (uint mapIdx = 0; mapIdx < mapLen; mapIdx++) {
-            (mapKey, byteIdx) = cborData.readStringBytes9(byteIdx);
+            (byteIdx, mapKey, mapKeyLen) = cborData.String32(byteIdx, 9);
             if (
                 // text field is the content of a text post.
-                bytes5(mapKey) == "text"
+                mapKeyLen == 4 && bytes4(mapKey) == "text"
             ) {
-                (feedPostText, byteIdx) = cborData.readString(byteIdx);
+                (byteIdx, feedPostText) = cborData.String(byteIdx);
             } else if (
                 // $type field should be "app.bsky.feed.post"
-                bytes6(mapKey) == "$type"
+                mapKeyLen == 5 && bytes5(mapKey) == "$type"
             ) {
-                bytes memory dollarType;
-                (dollarType, byteIdx) = cborData.readStringBytes(byteIdx);
-                require(bytes19(bytes(dollarType)) == nsidFeedPost, "unexpected record $type");
+                bytes32 dollarType;
+                uint8 dollarTypeLen;
+                (byteIdx, dollarType, dollarTypeLen) = cborData.String32(byteIdx, 18);
+                require(dollarTypeLen == 18 && bytes18(dollarType) == nsidFeedPost, "unexpected record $type");
             } else if (
                 // langs array unused
-                bytes6(mapKey) == "langs"
+                mapKeyLen == 5 && bytes5(mapKey) == "langs"
             ) {
                 uint langsLength;
-                (langsLength, byteIdx) = cborData.readFixedArray(byteIdx);
+                (byteIdx, langsLength) = cborData.Array(byteIdx);
                 for (uint j = 0; j < langsLength; j++) {
                     byteIdx = cborData.skipString(byteIdx);
                 }
             } else if (
                 // createdAt string unused
-                bytes9(mapKey) == "createdAt"
+                mapKeyLen == 9 && bytes9(mapKey) == "createdAt"
             ) {
                 // createdAt is arbitrary user-defined data. the useful and
                 // verifiable timestamp is the commit's repo revision field
@@ -61,6 +66,6 @@ library AppBsky {
             }
         }
 
-        return (feedPostText, byteIdx);
+        return (byteIdx, feedPostText);
     }
 }
