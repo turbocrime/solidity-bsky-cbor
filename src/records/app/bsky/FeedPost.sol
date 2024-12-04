@@ -1,30 +1,20 @@
 // SPDX-License-Identifier: Apache-2.0
 pragma solidity ^0.8.28;
 
-import {console} from "forge-std/console.sol";
-import "./CborRead.sol";
-import "./CborReadCid.sol";
+import "../../../cbor/ReadCid.sol";
 
-using CborRead for bytes;
-using CborReadCid for bytes;
+using ReadCbor for bytes;
+using ReadCid for bytes;
 
 struct AppBskyFeedPost {
     string text;
 }
 
-library AppBsky {
-    bytes18 private constant nsidFeedPost = "app.bsky.feed.post";
+library ReadAppBskyFeedPost {
+    bytes18 private constant nsid = "app.bsky.feed.post";
 
-    function FeedPost(bytes memory cborData) internal pure returns (AppBskyFeedPost memory feedPost) {
-        uint byteIdx = 0;
-        (byteIdx, feedPost.text) = FeedPost(cborData, byteIdx);
-        cborData.requireComplete(byteIdx);
-        return feedPost;
-    }
-
-    function FeedPost(bytes memory cborData, uint byteIdx) internal pure returns (uint, string memory feedPostText) {
-        uint mapLen;
-        (byteIdx, mapLen) = cborData.Map(byteIdx);
+    function FeedPost(bytes memory cborData) internal pure returns (string memory feedPostText) {
+        (uint byteIdx, uint mapLen) = cborData.Map(0);
 
         require(mapLen == 4, "expected 4 fields in `app.bsky.feed.post` record");
 
@@ -41,10 +31,10 @@ library AppBsky {
                 // $type field should be "app.bsky.feed.post"
                 mapKeyLen == 5 && bytes5(mapKey) == "$type"
             ) {
-                bytes32 dollarType;
-                uint8 dollarTypeLen;
-                (byteIdx, dollarType, dollarTypeLen) = cborData.String32(byteIdx, 18);
-                require(dollarTypeLen == 18 && bytes18(dollarType) == nsidFeedPost, "unexpected record $type");
+                bytes32 _type;
+                uint8 itemLen;
+                (byteIdx, _type, itemLen) = cborData.String32(byteIdx, 18);
+                require(itemLen == 18 && bytes18(_type) == nsid, "unexpected record $type");
             } else if (
                 // langs array unused
                 mapKeyLen == 5 && bytes5(mapKey) == "langs"
@@ -65,7 +55,8 @@ library AppBsky {
                 revert("unexpected record key");
             }
         }
+        cborData.requireComplete(byteIdx);
 
-        return (byteIdx, feedPostText);
+        return feedPostText;
     }
 }

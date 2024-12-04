@@ -2,9 +2,9 @@
 pragma solidity ^0.8.28;
 
 import {Test, console} from "forge-std/Test.sol";
-import "../../src/CborRead.sol";
+import "../../src/cbor/ReadCbor.sol";
 
-using CborRead for bytes;
+using ReadCbor for bytes;
 
 /// @author turbocrime
 contract MapTest is Test {

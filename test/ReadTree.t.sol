@@ -2,28 +2,66 @@
 pragma solidity ^0.8.28;
 
 import {Test, console} from "forge-std/Test.sol";
-import "../src/CborReadTree.sol";
-import "../src/CborReadTreeNode.sol";
-import "../src/CborReadCommit.sol";
-import "../src/CborReadCid.sol";
+import "../src/repo/ReadCommit.sol";
+import "../src/repo/ReadTree.sol";
 
-using CborRead for bytes;
-using CborReadCid for bytes;
-using CborReadTreeNode for bytes;
+using ReadCbor for bytes;
+using ReadCommit for bytes;
+using ReadCid for bytes;
+using ReadTree for bytes[];
 
-contract CborReadTreeTest is Test {
-    //bytes memory rootCborWithSig = hex"a66364696478206469643a706c633a6d74713365346d67743777796a6868616e69657a656a3637637265766d336c61796b6c746f7370323271637369675840d395a8c48c851c0ae8abe772d9fc33cac0619709ca2bcc5b60f7ff9e6ff7bf8363f68f57c10e0277403e800c5b9fd7c448f9816bf4ab878fd8148ceb24ef520b6464617461d82a5825000171122066da6655bf8da79b69a87299cf170fed8497fa3059379dc4a8bfe1e28cab5d936470726576f66776657273696f6e03";
-    //bytes memory rootSig = hex"D395A8C48C851C0AE8ABE772D9FC33CAC0619709CA2BCC5B60F7FF9E6FF7BF8363F68F57C10E0277403E800C5B9FD7C448F9816BF4AB878FD8148CEB24EF520B";
-    bytes public constant rootCborWithoutSig =
+contract ReadTree_Test is Test {
+    /*
+    bytes private constant treeNodeBytes =
+        hex"a2616585a4616b58236170702e62736b792e67726170682e666f6c6c6f772f336b77767534737665647332346170006174d82a58250001711220b000383f1466f65b0a02da763f46cf0e4510d832f6c609a9df56db73b81259376176d82a582500017112205cd7382608fb47afda979840cf0024b3d2d2e9e43448713909e998b6a1849490a4616b486679656a776332346170181b6174d82a58250001711220b295211bc0bfc8a6c8404f4877e96c37b25272c85e4942a29b178d26803f13996176d82a5825000171122017428f68c9c19f59b08b4b2d71ce96e04cdaf6139b94baf0a2c5ee51aa74493fa4616b486d77686f6e3232346170181b6174d82a58250001711220752be9d63155323fc5ce8753bdb5832fc7f5ad762c4e37944a6de84bbb9516876176d82a582500017112200fe8a27c597fcc6059888660b321e473bdaa94b45d0a702f3bd05e013ff17564a4616b486e337667376332346170181b6174d82a58250001711220ff7f6bd81b38a383101aec250c290ec6cd33555baf1e644f4b6d9b60a2e1fb856176d82a58250001711220a9f192fea504ecf8ae900d2a4f9f37551865132ae50bf680ac1687636afee7e1a4616b486f797875373232346170181b6174d82a582500017112204afcab072750efa8755714ca8477b35e871b71856a329c9973c4b94b7a4c98986176d82a58250001711220c46c805c774dcd3eaf4f90cef5e63f1f2a53f9c6bdb14b7397e736678b54dc97616cd82a582500017112206e7335ed248edae3ed49d47b88a5fcad2985e15f416f8ae23a49dfc1231aeb91";
+
+    CidSha256 private constant expectLeftCid =
+        CidSha256.wrap(uint256(bytes32(hex"6e7335ed248edae3ed49d47b88a5fcad2985e15f416f8ae23a49dfc1231aeb91")));
+    */
+
+    /*
+    function test_readTreeNode_only() public pure {
+        treeNodeBytes.readTreeNode(0);
+    }
+
+    function test_readTreeNode_valid() public pure {
+        uint byteIdx;
+        TreeNode memory node;
+        (byteIdx, node) = treeNodeBytes.readTreeNode(byteIdx);
+
+        require(byteIdx == treeNodeBytes.length, "expected to read all bytes");
+        require(node.entries.length == 5, "expected 5 entries");
+        require(node.left == expectLeftCid, "expected left sha");
+        for (uint i = 0; i < node.entries.length; i++) {
+            console.log("node entry %s", i);
+            console.log("key", node.entries[i].key);
+            console.log("value", CidSha256.unwrap(node.entries[i].value));
+            console.log("tree", CidSha256.unwrap(node.entries[i].tree));
+        }
+    }
+
+    function test_readNodeE() public pure {
+        uint byteIdx = 3;
+        CborReadTreeNode.TreeNodeE[] memory e;
+        (byteIdx, e) = treeNodeBytes.readEArray(3);
+    }
+
+    function test_readNodeE_buildEntryKeys() public pure {
+        uint byteIdx = 3;
+        CborReadTreeNode.TreeNodeE[] memory e;
+        (byteIdx, e) = treeNodeBytes.readEArray(3);
+        CborReadTreeNode.buildEntryKeys(e);
+    }
+
+    */
+
+    bytes public constant commitCbor =
         hex"A56364696478206469643A706C633A6D74713365346D67743777796A6868616E69657A656A3637637265766D336C61796B6C746F73703232716464617461D82A5825000171122066DA6655BF8DA79B69A87299CF170FED8497FA3059379DC4A8BFE1E28CAB5D936470726576F66776657273696F6E03";
     CidSha256 private constant expectLeftCid =
         CidSha256.wrap(uint256(bytes32(hex"6E7335ED248EDAE3ED49D47B88A5FCAD2985E15F416F8AE23A49DFC1231AEB91")));
 
     bytes private constant targetRecord =
         hex"a4647465787478196361722066696c65732063616e6e6f74206875727420796f75652474797065726170702e62736b792e666565642e706f7374656c616e67738162656e696372656174656441747818323032342d31312d31355431323a31303a33322e3031345a";
-
-    //bytes32 private constant recordCidBytes = hex"6d51f125727763752e073d9301892fbddaa4cc6090d5fff9af7d49106b92d457";
-    //Cid private constant recordIdx = Cid.wrap(recordCidBytes);
 
     Commit private rootCommit;
     CidSha256 private rootCid;
@@ -45,25 +83,18 @@ contract CborReadTreeTest is Test {
     Tree private tree;
 
     function setUp() public {
-        (, rootCommit) = CborReadCommit.UnsafeCommit(rootCborWithoutSig, 0);
+        rootCommit = commitCbor.readCommit();
         rootCid = rootCommit.data;
-        tree = CborReadTree.readTree(nodeCbors);
+        tree = nodeCbors.readTree();
     }
 
     function test_readTree() public view {
-        CborReadTree.readTree(nodeCbors);
+        nodeCbors.readTree();
     }
 
     function test_has() public view {
         (bool nodePresent,) = tree.has(rootCid);
         require(nodePresent);
-    }
-
-    function test_get() public view {
-        TreeNode memory rootNode = tree.get(rootCid);
-        require(rootNode.left == expectLeftCid, "expected left cid");
-        console.log("node.left", CidSha256.unwrap(rootNode.left));
-        console.log("node.entries length", rootNode.entries.length);
     }
 
     function test_verifyInclusion() public view {

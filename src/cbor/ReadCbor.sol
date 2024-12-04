@@ -23,11 +23,7 @@ uint8 constant MinorExtendU16 = 0x17 + 2; // 25
 uint8 constant MinorExtendU32 = 0x17 + 3; // 26
 uint8 constant MinorExtendU64 = 0x17 + 4; // 27
 
-library CborRead {
-    type float16 is uint16;
-    type float32 is uint32;
-    type float64 is uint64;
-
+library ReadCbor {
     function requireRange(bytes memory cbor, uint i, uint64 advance) internal pure returns (uint ret) {
         ret = i + advance;
         require(ret <= cbor.length, "index advance out of range");
@@ -338,6 +334,10 @@ library CborRead {
 
     /*
     // ---- read primitive/float ----
+
+    // type float16 is uint16;
+    // type float32 is uint32;
+    // type float64 is uint64;
 
     function Float(bytes memory cbor, uint i) internal pure returns (uint, float64) {
         Major major;
