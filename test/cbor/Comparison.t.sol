@@ -2,13 +2,13 @@
 pragma solidity ^0.8.28;
 
 import {Test} from "forge-std/Test.sol";
-import "../../src/cbor/ReadCbor.sol";
+import "../../src/ReadCbor.sol";
 
 using ReadCbor for bytes;
 
 /// @author Zondax AG
 /// @author turbocrime
-contract CborDecode_ReadCbor_Test is Test {
+contract Comparison_Test is Test {
     function test_decodeFixedArray() public pure {
         bytes memory cbor = hex"8F0102030405060708090A64746573744401010101F4F6F5";
         uint i;

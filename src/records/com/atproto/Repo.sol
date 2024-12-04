@@ -1,23 +1,25 @@
 // SPDX-License-Identifier: Apache-2.0
 pragma solidity ^0.8.28;
 
-import "../../../cbor/ReadCid.sol";
+import "../../../repo/ReadCid.sol";
 
 using ReadCbor for bytes;
 
-struct ComAtprotoRepoStrongRef {
-    string cid; // i don't know why this cid is a string. i guess it's for the URI target?
-    string uri; // at-uri
-}
-
-library ReadComAtprotoRepoStrongRef {
+library ComAtprotoRepo {
     bytes26 private constant nsid = "com.atproto.repo.strongRef";
 
-    function RepoStrongRef(bytes memory cborData, uint byteIdx)
-        internal
-        pure
-        returns (uint, ComAtprotoRepoStrongRef memory ref)
-    {
+    struct StrongRef {
+        string cid; // this cid is a string, as it's intended for a URI target segment
+        string uri; // at: uri
+    }
+
+    function readStrongRef(bytes memory cborData) internal pure returns (StrongRef memory) {
+        (uint byteIdx, StrongRef memory ref) = readStrongRef(cborData, 0);
+        cborData.requireComplete(byteIdx);
+        return ref;
+    }
+
+    function readStrongRef(bytes memory cborData, uint byteIdx) internal pure returns (uint, StrongRef memory ref) {
         uint mapLen;
         (byteIdx, mapLen) = cborData.Map(byteIdx);
 
@@ -47,6 +49,6 @@ library ReadComAtprotoRepoStrongRef {
             }
         }
 
-        return (byteIdx, ComAtprotoRepoStrongRef(cid, uri));
+        return (byteIdx, StrongRef(cid, uri));
     }
 }

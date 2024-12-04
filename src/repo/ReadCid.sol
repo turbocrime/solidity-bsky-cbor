@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 pragma solidity ^0.8.28;
 
-import "./ReadCbor.sol";
+import "../ReadCbor.sol";
 
 // we will only encounter CID v1 dag-cbor sha256, which perfectly fits uint256.
 // some CID fields may be nullable, so the zero value represents a 'null' CID.

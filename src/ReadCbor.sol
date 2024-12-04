@@ -13,17 +13,20 @@ uint8 constant MajorMap = 5;
 uint8 constant MajorTag = 6;
 uint8 constant MajorPrimitive = 7;
 
-uint8 constant SimpleFalse = (MajorPrimitive << shiftMajor) | 0x14;
-uint8 constant SimpleTrue = (MajorPrimitive << shiftMajor) | 0x15;
-uint8 constant SimpleNull = (MajorPrimitive << shiftMajor) | 0x16;
-uint8 constant SimpleUndefined = (MajorPrimitive << shiftMajor) | 0x17;
-
-uint8 constant MinorExtendU8 = 0x17 + 1; // 24
-uint8 constant MinorExtendU16 = 0x17 + 2; // 25
-uint8 constant MinorExtendU32 = 0x17 + 3; // 26
-uint8 constant MinorExtendU64 = 0x17 + 4; // 27
-
 library ReadCbor {
+    bool private constant ArgSizeByte = true;
+    bool private constant ArgSizeExt = false;
+
+    uint8 private constant SimpleFalse = (MajorPrimitive << shiftMajor) | 0x14;
+    uint8 private constant SimpleTrue = (MajorPrimitive << shiftMajor) | 0x15;
+    uint8 private constant SimpleNull = (MajorPrimitive << shiftMajor) | 0x16;
+    uint8 private constant SimpleUndefined = (MajorPrimitive << shiftMajor) | 0x17;
+
+    uint8 private constant MinorExtendU8 = 0x17 + 1; // 24
+    uint8 private constant MinorExtendU16 = 0x17 + 2; // 25
+    uint8 private constant MinorExtendU32 = 0x17 + 3; // 26
+    uint8 private constant MinorExtendU64 = 0x17 + 4; // 27
+
     function requireRange(bytes memory cbor, uint i, uint64 advance) internal pure returns (uint ret) {
         ret = i + advance;
         require(ret <= cbor.length, "index advance out of range");
@@ -71,10 +74,27 @@ library ReadCbor {
         return parseArg(cbor, i, minor);
     }
 
+    function headerExpect(bytes memory cbor, uint i, uint8 expectMajor, bool argSize)
+        private
+        pure
+        returns (uint, uint64)
+    {
+        uint8 major;
+        uint8 minor;
+        (i, major, minor) = mm(cbor, i);
+        require(major == expectMajor, "unexpected major type");
+        if (argSize) {
+            require(minor <= MinorExtendU8, "expected single-byte arg");
+        } else {
+            require(minor >= MinorExtendU16 && minor <= MinorExtendU64, "expected multi-byte arg");
+        }
+        return parseArg(cbor, i, minor);
+    }
+
     function headerExpect(bytes memory cbor, uint i, uint8 expectMajor, uint8 expectMinor)
         private
         pure
-        returns (uint, uint64 arg)
+        returns (uint, uint64)
     {
         uint8 major;
         uint8 minor;
@@ -265,17 +285,9 @@ library ReadCbor {
     }
 
     function UInt8(bytes memory cbor, uint i) internal pure returns (uint, uint8) {
-        uint8 h = uint8(cbor[i]);
-        require(h >> shiftMajor == MajorUnsigned, "expected unsigned integer");
-        uint8 minor = h & maskMinor;
-        if (minor < MinorExtendU8) {
-            return (i + 1, minor);
-        } else if (minor == MinorExtendU8) {
-            uint8 arg = uint8(cbor[i + 1]);
-            require(arg >= MinorExtendU8, "invalid type argument (single-byte value too low)");
-            return (i + 2, arg);
-        }
-        revert("expected literal or 1-byte extended type argument");
+        uint64 arg;
+        (i, arg) = headerExpect(cbor, i, MajorUnsigned, ArgSizeByte);
+        return (i, uint8(arg));
     }
 
     function UInt16(bytes memory cbor, uint i) internal pure returns (uint, uint16) {
@@ -297,7 +309,6 @@ library ReadCbor {
         return (i, ret);
     }
 
-    /*
     // ---- read negative integer ----
 
     function NInt(bytes memory cbor, uint i) internal pure returns (uint, int128) {
@@ -308,71 +319,55 @@ library ReadCbor {
 
     function NInt8(bytes memory cbor, uint i) internal pure returns (uint, int16) {
         uint64 arg;
-        (i, arg) = headerExpect(cbor, i, MajorNegative);
-        require(arg <= type(uint8).max, "expected unsigned 8-bit type argument");
+        (i, arg) = headerExpect(cbor, i, MajorNegative, ArgSizeByte);
         return (i, -1 - int16(uint16(arg)));
     }
 
     function NInt16(bytes memory cbor, uint i) internal pure returns (uint, int32) {
         uint64 arg;
-        (i, arg) = headerExpect(cbor, i, MajorNegative, MinorExt.U16);
+        (i, arg) = headerExpect(cbor, i, MajorNegative, MinorExtendU16);
         return (i, -1 - int32(uint32(arg)));
     }
 
     function NInt32(bytes memory cbor, uint i) internal pure returns (uint, int64) {
         uint64 arg;
-        (i, arg) = headerExpect(cbor, i, MajorNegative, MinorExt.U32);
+        (i, arg) = headerExpect(cbor, i, MajorNegative, MinorExtendU32);
         return (i, -1 - int64(uint64(arg)));
     }
 
     function NInt64(bytes memory cbor, uint i) internal pure returns (uint, int128) {
         uint64 arg;
-        (i, arg) = headerExpect(cbor, i, MajorNegative, MinorExt.U64);
+        (i, arg) = headerExpect(cbor, i, MajorNegative, MinorExtendU64);
         return (i, -1 - int128(uint128(arg)));
     }
-    */
 
-    /*
     // ---- read primitive/float ----
 
-    // type float16 is uint16;
-    // type float32 is uint32;
-    // type float64 is uint64;
+    type float16 is uint16;
+    type float32 is uint32;
+    type float64 is uint64;
 
     function Float(bytes memory cbor, uint i) internal pure returns (uint, float64) {
-        Major major;
-        uint8 minor;
         uint64 arg;
-        (i, major, minor) = mm(cbor, i);
-        require(major == MajorPrimitive, "expected primitive");
-        if (minor == MinorExtendU16) {
-            (i, arg) = u16(cbor, i);
-        } else if (minor == MinorExtendU32) {
-            (i, arg) = u32(cbor, i);
-        } else if (minor == MinorExtendU64) {
-            (i, arg) = u64(cbor, i);
-        } else {
-            revert("expected float");
-        }
+        (i, arg) = headerExpect(cbor, i, MajorPrimitive);
         return (i, float64.wrap(arg));
     }
 
     function Float16(bytes memory cbor, uint i) internal pure returns (uint, float16) {
         uint64 arg;
-        (i, arg) = headerExpect(cbor, i, MajorPrimitive, MinorExt.U16);
+        (i, arg) = headerExpect(cbor, i, MajorPrimitive, MinorExtendU16);
         return (i, float16.wrap(uint16(arg)));
     }
 
     function Float32(bytes memory cbor, uint i) internal pure returns (uint, float32) {
         uint64 arg;
-        (i, arg) = headerExpect(cbor, i, MajorPrimitive, MinorExt.U32);
+        (i, arg) = headerExpect(cbor, i, MajorPrimitive, MinorExtendU32);
         return (i, float32.wrap(uint32(arg)));
     }
 
     function Float64(bytes memory cbor, uint i) internal pure returns (uint, float64) {
         uint64 arg;
-        (i, arg) = headerExpect(cbor, i, MajorPrimitive, MinorExt.U64);
+        (i, arg) = headerExpect(cbor, i, MajorPrimitive, MinorExtendU64);
         return (i, float64.wrap(arg));
     }
-    */
 }
