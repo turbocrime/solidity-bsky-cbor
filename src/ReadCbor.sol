@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 pragma solidity ^0.8.28;
 
-import {console} from "forge-std/console.sol";
+import "forge-std/console.sol";
 
 uint8 constant maskMinor = 0x1f; // 0b0001_1111;
 uint8 constant shiftMajor = 5;
@@ -16,14 +16,6 @@ uint8 constant MajorTag = 6;
 uint8 constant MajorPrimitive = 7;
 
 library ReadCbor {
-    bool private constant ArgSizeByte = true;
-    bool private constant ArgSizeExt = false;
-
-    uint8 private constant SimpleFalse = (MajorPrimitive << shiftMajor) | 0x14;
-    uint8 private constant SimpleTrue = (MajorPrimitive << shiftMajor) | 0x15;
-    uint8 private constant SimpleNull = (MajorPrimitive << shiftMajor) | 0x16;
-    uint8 private constant SimpleUndefined = (MajorPrimitive << shiftMajor) | 0x17;
-
     uint8 private constant MinorExtendU8 = 0x17 + 1; // 24
     uint8 private constant MinorExtendU16 = 0x17 + 2; // 25
     uint8 private constant MinorExtendU32 = 0x17 + 3; // 26
@@ -42,7 +34,7 @@ library ReadCbor {
 
     function u8(bytes memory cbor, uint i) private pure returns (uint n, uint8 ret) {
         assembly ("memory-safe") {
-            // Load 2 bytes directly into value starting at position i
+            // Load 1 bytes directly into value starting at position i
             ret := shr(248, mload(add(add(cbor, 0x20), i))) // 248 = 256 - (8 bits)
             n := add(i, 1)
         }
@@ -93,22 +85,33 @@ library ReadCbor {
         return parseArg(cbor, i, minor);
     }
 
-    function headerExpectByteArg(bytes memory cbor, uint i, uint8 expectMajor) internal pure returns (uint, uint8) {
-        uint8 h;
-        (i, h) = u8(cbor, i);
-        uint8 major = h >> shiftMajor;
-        uint8 minor = h & maskMinor;
-        require(major == expectMajor, "unexpected major type");
+    function headerExpectByteArg(bytes memory cbor, uint i, uint8 expectMajor)
+        internal
+        pure
+        returns (uint, uint8 ret)
+    {
+        uint8 major;
 
-        if (minor < MinorExtendU8) {
-            return (i, minor);
+        assembly ("memory-safe") {
+            let h := shr(248, mload(add(add(cbor, 0x20), i)))
+            // Compute major and minor in one assembly block
+            major := shr(5, h)
+            ret := and(h, 0x1f)
+            i := add(i, 1)
         }
 
-        require(minor == MinorExtendU8, "expected single-byte arg");
-        uint8 arg;
-        (i, arg) = u8(cbor, i);
-        require(arg >= MinorExtendU8, "invalid type argument (single-byte value too low)");
-        return (i, arg);
+        require(major == expectMajor, "unexpected major type");
+
+        if (ret >= MinorExtendU8) {
+            require(ret == MinorExtendU8, "expected single-byte arg");
+            assembly ("memory-safe") {
+                ret := shr(248, mload(add(add(cbor, 0x20), i)))
+                i := add(i, 1)
+            }
+            require(ret >= MinorExtendU8, "invalid type argument (single-byte value too low)");
+        }
+
+        return (i, ret);
     }
 
     function headerExpectMultibyteArg(bytes memory cbor, uint i, uint8 expectMajor)
@@ -155,39 +158,29 @@ library ReadCbor {
         revert("minor unsupported");
     }
 
-    function wordOfType(bytes memory cbor, uint i, uint8 expectMajor, uint8 maxLen)
-        private
-        pure
-        returns (uint, bytes32 ret, uint8)
-    {
-        require(maxLen <= 32, "maxLen out of range (32-byte word)");
-
-        uint64 len;
-        (i, len) = headerExpectByteArg(cbor, i, expectMajor);
-        require(len <= maxLen, "item exceeds max length");
-
-        assembly {
-            ret := mload(add(cbor, add(0x20, i)))
-        }
-
-        return (requireRange(cbor, i + len), ret, uint8(len));
-    }
-
     // ---- read primitive/simple ----
 
-    function isNull(bytes memory cbor, uint i) internal pure returns (bool) {
-        return uint8(cbor[i]) == SimpleNull;
+    function isNull(bytes memory cbor, uint i) internal pure returns (bool ret) {
+        assembly ("memory-safe") {
+            ret := eq(byte(0, mload(add(add(cbor, 0x20), i))), 0xf6)
+        }
     }
 
-    function isUndefined(bytes memory cbor, uint i) internal pure returns (bool) {
-        return uint8(cbor[i]) == SimpleUndefined;
+    function isUndefined(bytes memory cbor, uint i) internal pure returns (bool ret) {
+        assembly ("memory-safe") {
+            ret := eq(byte(0, mload(add(add(cbor, 0x20), i))), 0xf7)
+        }
     }
 
-    function Bool(bytes memory cbor, uint i) internal pure returns (uint, bool) {
+    function Bool(bytes memory cbor, uint i) internal pure returns (uint, bool ret) {
         uint8 h;
-        (i, h) = u8(cbor, i);
-        require(h == SimpleTrue || h == SimpleFalse, "expected boolean");
-        return (i, h == SimpleTrue);
+        assembly ("memory-safe") {
+            h := byte(0, mload(add(add(cbor, 0x20), i)))
+            ret := eq(h, 0xF5)
+            i := add(i, 1)
+        }
+        require(h == 0xF4 || ret, "expected boolean");
+        return (i, ret);
     }
 
     // ---- read array size ----
@@ -229,11 +222,20 @@ library ReadCbor {
     }
 
     function String32(bytes memory cbor, uint i) internal pure returns (uint, bytes32 ret, uint8 len) {
-        return wordOfType(cbor, i, MajorText, 32);
+        return String32(cbor, i, 32);
     }
 
-    function String32(bytes memory cbor, uint i, uint8 maxLen) internal pure returns (uint, bytes32, uint8) {
-        return wordOfType(cbor, i, MajorText, maxLen);
+    function String32(bytes memory cbor, uint i, uint8 maxLen) internal pure returns (uint, bytes32 ret, uint8 len) {
+        require(maxLen <= 32, "maxLen out of range (32-byte word)");
+
+        (i, len) = headerExpectByteArg(cbor, i, MajorText);
+        require(len <= maxLen, "item exceeds max length");
+
+        assembly {
+            ret := mload(add(cbor, add(0x20, i)))
+        }
+
+        return (requireRange(cbor, i + len), ret, uint8(len));
     }
 
     function String1(bytes memory cbor, uint i) internal pure returns (uint, bytes1 s) {
@@ -276,11 +278,20 @@ library ReadCbor {
     }
 
     function Bytes32(bytes memory cbor, uint i) internal pure returns (uint, bytes32, uint8) {
-        return wordOfType(cbor, i, MajorBytes, 32);
+        return Bytes32(cbor, i, 32);
     }
 
-    function Bytes32(bytes memory cbor, uint i, uint8 maxLen) internal pure returns (uint, bytes32, uint8) {
-        return wordOfType(cbor, i, MajorBytes, maxLen);
+    function Bytes32(bytes memory cbor, uint i, uint8 maxLen) internal pure returns (uint, bytes32 ret, uint8 len) {
+        require(maxLen <= 32, "maxLen out of range (32-byte word)");
+
+        (i, len) = headerExpectByteArg(cbor, i, MajorBytes);
+        require(len <= maxLen, "item exceeds max length");
+
+        assembly {
+            ret := mload(add(cbor, add(0x20, i)))
+        }
+
+        return (requireRange(cbor, i + len), ret, uint8(len));
     }
 
     function skipBytes(bytes memory cbor, uint i) internal pure returns (uint) {
@@ -362,6 +373,7 @@ library ReadCbor {
         return (i, -1 - int128(uint128(arg)));
     }
 
+    /*
     // ---- read primitive/float ----
 
     type float16 is uint16;
@@ -391,4 +403,5 @@ library ReadCbor {
         (i, arg) = headerExpect(cbor, i, MajorPrimitive, MinorExtendU64);
         return (i, float64.wrap(arg));
     }
+    */
 }

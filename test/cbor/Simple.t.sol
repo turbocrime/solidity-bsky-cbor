@@ -7,7 +7,7 @@ import "../../src/ReadCbor.sol";
 using ReadCbor for bytes;
 
 /// @author turbocrime
-contract SpecialTest is Test {
+contract SimpleTest is Test {
     function test_decodeFalse() public pure {
         bytes memory cbor = hex"f4";
         uint i;
