@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 pragma solidity ^0.8.28;
 
+import {console} from "forge-std/console.sol";
+
 uint8 constant maskMinor = 0x1f; // 0b0001_1111;
 uint8 constant shiftMajor = 5;
 
@@ -26,100 +28,122 @@ library ReadCbor {
     uint8 private constant MinorExtendU16 = 0x17 + 2; // 25
     uint8 private constant MinorExtendU32 = 0x17 + 3; // 26
     uint8 private constant MinorExtendU64 = 0x17 + 4; // 27
+    // minors 28-30 are reserved
+    // minor 31 is unsupported
 
-    function requireRange(bytes memory cbor, uint i, uint64 advance) internal pure returns (uint ret) {
-        ret = i + advance;
-        require(ret <= cbor.length, "index advance out of range");
-        return ret;
+    function requireRange(bytes memory cbor, uint i) internal pure returns (uint) {
+        require(i <= cbor.length, "index advance out of range");
+        return i;
     }
 
     function requireComplete(bytes memory cbor, uint i) internal pure {
         require(i == cbor.length, "expected to read all bytes");
     }
 
-    function mm(bytes memory cbor, uint i) private pure returns (uint, uint8 major, uint8 minor) {
-        uint8 b = uint8(cbor[i]);
-        return (i + 1, b >> shiftMajor, b & maskMinor);
-    }
-
-    function u16(bytes memory cbor, uint i) private pure returns (uint, uint16) {
-        bytes2 value;
+    function u8(bytes memory cbor, uint i) private pure returns (uint n, uint8 ret) {
         assembly ("memory-safe") {
-            value := mload(add(cbor, add(0x20, i)))
+            // Load 2 bytes directly into value starting at position i
+            ret := shr(248, mload(add(add(cbor, 0x20), i))) // 248 = 256 - (8 bits)
+            n := add(i, 1)
         }
-        return (i + 2, uint16(value));
     }
 
-    function u32(bytes memory cbor, uint i) private pure returns (uint, uint32) {
-        bytes4 value;
+    function u16(bytes memory cbor, uint i) private pure returns (uint n, uint16 ret) {
         assembly ("memory-safe") {
-            value := mload(add(cbor, add(0x20, i)))
+            // Load 2 bytes directly into value starting at position i
+            ret := shr(240, mload(add(add(cbor, 0x20), i))) // 240 = 256 - (16 bits)
+            n := add(i, 2)
         }
-        return (i + 4, uint32(value));
     }
 
-    function u64(bytes memory cbor, uint i) private pure returns (uint, uint64) {
-        bytes8 value;
+    function u32(bytes memory cbor, uint i) private pure returns (uint n, uint32 ret) {
         assembly ("memory-safe") {
-            value := mload(add(cbor, add(0x20, i)))
+            // Load 4 bytes directly into value starting at position i
+            ret := shr(224, mload(add(add(cbor, 0x20), i))) // 224 = 256 - (32 bits)
+            n := add(i, 4)
         }
-        return (i + 8, uint64(value));
     }
 
-    function headerExpect(bytes memory cbor, uint i, uint8 expectMajor) private pure returns (uint, uint64 arg) {
-        uint8 major;
-        uint8 minor;
-        (i, major, minor) = mm(cbor, i);
-        require(major == expectMajor, "unexpected major type");
-        return parseArg(cbor, i, minor);
+    function u64(bytes memory cbor, uint i) private pure returns (uint n, uint64 ret) {
+        assembly ("memory-safe") {
+            // Load 8 bytes directly into value starting at position i
+            ret := shr(192, mload(add(add(cbor, 0x20), i))) // 192 = 256 - (64 bits)
+            n := add(i, 8)
+        }
     }
 
-    function headerExpect(bytes memory cbor, uint i, uint8 expectMajor, bool argSize)
-        private
-        pure
-        returns (uint, uint64)
-    {
-        uint8 major;
-        uint8 minor;
-        (i, major, minor) = mm(cbor, i);
-        require(major == expectMajor, "unexpected major type");
-        if (argSize) {
-            require(minor <= MinorExtendU8, "expected single-byte arg");
-        } else {
-            require(minor >= MinorExtendU16 && minor <= MinorExtendU64, "expected multi-byte arg");
-        }
-        return parseArg(cbor, i, minor);
+    function headerExpect(bytes memory cbor, uint i, uint8 expectMajor) internal pure returns (uint, uint64) {
+        uint8 h;
+        (i, h) = u8(cbor, i);
+        require(h >> shiftMajor == expectMajor, "unexpected major type");
+        return parseArg(cbor, i, h & maskMinor);
     }
 
     function headerExpect(bytes memory cbor, uint i, uint8 expectMajor, uint8 expectMinor)
-        private
+        internal
         pure
         returns (uint, uint64)
     {
-        uint8 major;
-        uint8 minor;
-        (i, major, minor) = mm(cbor, i);
+        uint8 h;
+        (i, h) = u8(cbor, i);
+        uint8 major = h >> shiftMajor;
+        uint8 minor = h & maskMinor;
         require(major == expectMajor, "unexpected major type");
         require(minor == expectMinor, "unexpected minor type");
         return parseArg(cbor, i, minor);
     }
 
-    function header(bytes memory cbor, uint i) private pure returns (uint, uint64 arg, uint8 major) {
-        uint8 minor;
-        (i, major, minor) = mm(cbor, i);
+    function headerExpectByteArg(bytes memory cbor, uint i, uint8 expectMajor) internal pure returns (uint, uint8) {
+        uint8 h;
+        (i, h) = u8(cbor, i);
+        uint8 major = h >> shiftMajor;
+        uint8 minor = h & maskMinor;
+        require(major == expectMajor, "unexpected major type");
+
+        if (minor < MinorExtendU8) {
+            return (i, minor);
+        }
+
+        require(minor == MinorExtendU8, "expected single-byte arg");
+        uint8 arg;
+        (i, arg) = u8(cbor, i);
+        require(arg >= MinorExtendU8, "invalid type argument (single-byte value too low)");
+        return (i, arg);
+    }
+
+    function headerExpectMultibyteArg(bytes memory cbor, uint i, uint8 expectMajor)
+        internal
+        pure
+        returns (uint, uint64)
+    {
+        uint8 h;
+        (i, h) = u8(cbor, i);
+        uint8 major = h >> shiftMajor;
+        uint8 minor = h & maskMinor;
+        require(major == expectMajor, "unexpected major type");
+        require(minor > MinorExtendU8, "expected multi-byte arg");
+        return parseArg(cbor, i, minor);
+    }
+
+    function header(bytes memory cbor, uint i) internal pure returns (uint, uint64 arg, uint8) {
+        uint8 h;
+        (i, h) = u8(cbor, i);
+        uint8 major = h >> shiftMajor;
+        uint8 minor = h & maskMinor;
         (i, arg) = parseArg(cbor, i, minor);
         return (i, arg, major);
     }
 
-    function parseArg(bytes memory cbor, uint i, uint8 minor) private pure returns (uint, uint64 arg) {
+    function parseArg(bytes memory cbor, uint i, uint8 minor) private pure returns (uint, uint64) {
         assert(minor < 32);
         if (minor < MinorExtendU8) {
             return (i, minor);
         } else {
             if (minor == MinorExtendU8) {
-                arg = uint8(cbor[i]);
+                uint8 arg;
+                (i, arg) = u8(cbor, i);
                 require(arg >= MinorExtendU8, "invalid type argument (single-byte value too low)");
-                return (i + 1, arg);
+                return (i, arg);
             } else if (minor == MinorExtendU16) {
                 return u16(cbor, i);
             } else if (minor == MinorExtendU32) {
@@ -128,34 +152,25 @@ library ReadCbor {
                 return u64(cbor, i);
             }
         }
-        //require(minor != MinorIndefinite, "unsupported minor type (item length indefinite)");
-        revert("minor type unsupported");
+        revert("minor unsupported");
     }
 
     function wordOfType(bytes memory cbor, uint i, uint8 expectMajor, uint8 maxLen)
         private
         pure
-        returns (uint, bytes32 ret, uint8 len)
+        returns (uint, bytes32 ret, uint8)
     {
-        require(maxLen <= 32, "maxLen out of range (32-bit word)");
-        uint8 major;
-        uint8 minor;
-        (i, major, minor) = mm(cbor, i);
-        require(major == expectMajor, "unexpected major type");
+        require(maxLen <= 32, "maxLen out of range (32-byte word)");
 
-        if (minor < MinorExtendU8) {
-            len = minor;
-        } else {
-            require(minor == MinorExtendU8, "excessive length");
-            (i, len) = (i + 1, uint8(cbor[i]));
-        }
+        uint64 len;
+        (i, len) = headerExpectByteArg(cbor, i, expectMajor);
         require(len <= maxLen, "item exceeds max length");
 
         assembly {
             ret := mload(add(cbor, add(0x20, i)))
         }
 
-        return (requireRange(cbor, i, len), ret, len);
+        return (requireRange(cbor, i + len), ret, uint8(len));
     }
 
     // ---- read primitive/simple ----
@@ -169,16 +184,17 @@ library ReadCbor {
     }
 
     function Bool(bytes memory cbor, uint i) internal pure returns (uint, bool) {
-        uint8 h = uint8(cbor[i]);
+        uint8 h;
+        (i, h) = u8(cbor, i);
         require(h == SimpleTrue || h == SimpleFalse, "expected boolean");
-        return (i + 1, h == SimpleTrue);
+        return (i, h == SimpleTrue);
     }
 
     // ---- read array size ----
 
     // An array of data items. The argument is the number of data items in the
     // array. Items in an array do not need to all be of the same type.
-    function Array(bytes memory cbor, uint i) internal pure returns (uint, uint64 len) {
+    function Array(bytes memory cbor, uint i) internal pure returns (uint, uint64) {
         return headerExpect(cbor, i, MajorArray);
     }
 
@@ -187,7 +203,7 @@ library ReadCbor {
     // A map is comprised of pairs of data items, each pair consisting of a key
     // that is immediately followed by a value. The argument is the number of
     // pairs of data items in the map.
-    function Map(bytes memory cbor, uint i) internal pure returns (uint, uint64 len) {
+    function Map(bytes memory cbor, uint i) internal pure returns (uint, uint64) {
         return headerExpect(cbor, i, MajorMap);
     }
 
@@ -202,7 +218,6 @@ library ReadCbor {
 
         ret = new string(len);
 
-        require(i + len <= bor.length, "slice out of bounds");
         assembly ("memory-safe") {
             for { let j := 0 } lt(j, len) { j := add(j, 0x20) } {
                 mstore(add(ret, add(0x20, j)), mload(add(bor, add(0x20, s))))
@@ -210,7 +225,7 @@ library ReadCbor {
             }
         }
 
-        return (requireRange(cbor, i, len), ret);
+        return (requireRange(cbor, i + len), ret);
     }
 
     function String32(bytes memory cbor, uint i) internal pure returns (uint, bytes32 ret, uint8 len) {
@@ -221,10 +236,22 @@ library ReadCbor {
         return wordOfType(cbor, i, MajorText, maxLen);
     }
 
+    function String1(bytes memory cbor, uint i) internal pure returns (uint, bytes1 s) {
+        bool valid;
+        assembly ("memory-safe") {
+            let h := shr(248, mload(add(add(cbor, 0x20), i))) // load header byte
+            valid := eq(h, 0x61) // 0x61 = (MajorText << 5) | 0x01
+            s := mload(add(add(cbor, 0x21), i)) // load string byte
+            i := add(i, 2)
+        }
+        require(valid, "expected single-byte string");
+        return (i, s);
+    }
+
     function skipString(bytes memory cbor, uint i) internal pure returns (uint) {
         uint64 len;
         (i, len) = headerExpect(cbor, i, MajorText);
-        return requireRange(cbor, i, len);
+        return requireRange(cbor, i + len);
     }
 
     // ---- read bytes ----
@@ -238,7 +265,6 @@ library ReadCbor {
 
         ret = new bytes(len);
 
-        require(i + len <= bor.length, "slice out of bounds");
         assembly ("memory-safe") {
             for { let j := 0 } lt(j, len) { j := add(j, 0x20) } {
                 mstore(add(ret, add(0x20, j)), mload(add(bor, add(0x20, s))))
@@ -246,7 +272,7 @@ library ReadCbor {
             }
         }
 
-        return (requireRange(cbor, i, len), ret);
+        return (requireRange(cbor, i + len), ret);
     }
 
     function Bytes32(bytes memory cbor, uint i) internal pure returns (uint, bytes32, uint8) {
@@ -260,7 +286,7 @@ library ReadCbor {
     function skipBytes(bytes memory cbor, uint i) internal pure returns (uint) {
         uint64 len;
         (i, len) = headerExpect(cbor, i, MajorBytes);
-        return requireRange(cbor, i, len);
+        return requireRange(cbor, i + len);
     }
 
     // ---- read tag ----
@@ -272,35 +298,30 @@ library ReadCbor {
 
     function Tag(bytes memory cbor, uint i, uint64 expectTag) internal pure returns (uint) {
         uint64 ret;
-        (i, ret) = headerExpect(cbor, i, MajorTag);
+        (i, ret) = headerExpectByteArg(cbor, i, MajorTag);
         require(ret == expectTag, "unexpected tag value");
         return i;
     }
 
     // ---- read unsigned integer ----
 
-    function UInt(bytes memory cbor, uint i) internal pure returns (uint, uint64 ret) {
-        (i, ret) = headerExpect(cbor, i, MajorUnsigned);
-        return (i, ret);
+    function UInt(bytes memory cbor, uint i) internal pure returns (uint, uint64) {
+        return headerExpect(cbor, i, MajorUnsigned);
     }
 
     function UInt8(bytes memory cbor, uint i) internal pure returns (uint, uint8) {
-        uint64 arg;
-        (i, arg) = headerExpect(cbor, i, MajorUnsigned, ArgSizeByte);
-        return (i, uint8(arg));
+        return headerExpectByteArg(cbor, i, MajorUnsigned);
     }
 
     function UInt16(bytes memory cbor, uint i) internal pure returns (uint, uint16) {
         uint64 arg;
         (i, arg) = headerExpect(cbor, i, MajorUnsigned, MinorExtendU16);
-        // headerExpect ensures arg size
         return (i, uint16(arg));
     }
 
     function UInt32(bytes memory cbor, uint i) internal pure returns (uint, uint32) {
         uint64 arg;
         (i, arg) = headerExpect(cbor, i, MajorUnsigned, MinorExtendU32);
-        // headerExpect ensures arg size
         return (i, uint32(arg));
     }
 
@@ -318,8 +339,8 @@ library ReadCbor {
     }
 
     function NInt8(bytes memory cbor, uint i) internal pure returns (uint, int16) {
-        uint64 arg;
-        (i, arg) = headerExpect(cbor, i, MajorNegative, ArgSizeByte);
+        uint8 arg;
+        (i, arg) = headerExpectByteArg(cbor, i, MajorNegative);
         return (i, -1 - int16(uint16(arg)));
     }
 
@@ -349,7 +370,7 @@ library ReadCbor {
 
     function Float(bytes memory cbor, uint i) internal pure returns (uint, float64) {
         uint64 arg;
-        (i, arg) = headerExpect(cbor, i, MajorPrimitive);
+        (i, arg) = headerExpectMultibyteArg(cbor, i, MajorPrimitive);
         return (i, float64.wrap(arg));
     }
 

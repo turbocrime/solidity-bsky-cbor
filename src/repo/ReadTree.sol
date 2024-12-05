@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 pragma solidity ^0.8.28;
 
-import "../repo/ReadCid.sol";
+import "../tags/ReadCid.sol";
 
 using ReadCbor for bytes;
 using ReadCid for bytes;
@@ -159,15 +159,15 @@ library ReadTree {
         CidSha256 t;
 
         for (uint i = 0; i < mapLen; i++) {
-            bytes32 mapKey;
-            (byteIdx, mapKey,) = cborData.String32(byteIdx, 1);
-            if (bytes1(mapKey) == "p") {
+            bytes1 mapKey;
+            (byteIdx, mapKey) = cborData.String1(byteIdx);
+            if (mapKey == "p") {
                 (byteIdx, p) = cborData.UInt8(byteIdx);
-            } else if (bytes1(mapKey) == "k") {
+            } else if (mapKey == "k") {
                 (byteIdx, k) = cborData.Bytes(byteIdx);
-            } else if (bytes1(mapKey) == "t") {
+            } else if (mapKey == "t") {
                 (byteIdx, t) = cborData.NullableCid(byteIdx);
-            } else if (bytes1(mapKey) == "v") {
+            } else if (mapKey == "v") {
                 (byteIdx, v) = cborData.NullableCid(byteIdx);
             } else {
                 revert("unexpected node entry field");
@@ -210,12 +210,12 @@ library ReadTree {
     function readNode(bytes memory cborData) private pure returns (MST.Node memory node) {
         (uint byteIdx, uint mapLen) = cborData.Map(0);
         require(mapLen == 2, "expected 2 fields in node");
-        bytes32 mapKey;
+        bytes1 mapKey;
         for (uint i = 0; i < mapLen; i++) {
-            (byteIdx, mapKey,) = cborData.String32(byteIdx, 1);
-            if (bytes1(mapKey) == "l") {
+            (byteIdx, mapKey) = cborData.String1(byteIdx);
+            if (mapKey == "l") {
                 (byteIdx, node.left) = cborData.NullableCid(byteIdx);
-            } else if (bytes1(mapKey) == "e") {
+            } else if (mapKey == "e") {
                 NodeE[] memory e; // TODO: inline readE?
                 (byteIdx, e) = cborData.readE(byteIdx);
                 node.entries = buildEntryKeys(e);

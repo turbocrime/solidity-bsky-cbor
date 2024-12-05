@@ -88,8 +88,7 @@ library ReadCid {
 
         return (
             cbor.requireRange(
-                i,
-                4 // cbor header
+                i + 4 // cbor header
                     + 5 // multibase header
                     + 32 // hash size
             ),

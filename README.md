@@ -67,11 +67,8 @@ function exampleUse(
 A single record parsing utility is provided for Bluesky posts.
 
 - `app.bsky.feed.post`
-
-Others are planned.
-
-- ~~`app.bsky.feed.like`~~
-- ~~`app.bsky.feed.repost`~~
+- `app.bsky.feed.like`
+- `app.bsky.feed.repost`
 - ~~`app.bsky.graph.block`~~
 - ~~`app.bsky.graph.follow`~~
 - ~~`app.bsky.richText.facet`~~

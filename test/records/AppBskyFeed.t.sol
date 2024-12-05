@@ -20,9 +20,9 @@ contract ReadAppBskyFeed_Test is Test {
     }
 
     function test_readFeedLike_valid() public pure {
-        AppBsky.FeedLike memory like = AppBsky.readFeedLike(cborFeedLike);
-        require(keccak256(abi.encode(like.subject.cid)) == keccak256(abi.encode(expectedFeedLikeCid)), "cid mismatch");
-        require(keccak256(abi.encode(like.subject.uri)) == keccak256(abi.encode(expectedFeedLikeUri)), "uri mismatch");
+        ComAtprotoRepo.StrongRef memory like = AppBsky.readFeedLike(cborFeedLike);
+        require(keccak256(abi.encode(like.cid)) == keccak256(abi.encode(expectedFeedLikeCid)), "cid mismatch");
+        require(keccak256(abi.encode(like.uri)) == keccak256(abi.encode(expectedFeedLikeUri)), "uri mismatch");
     }
 
     bytes private constant cborFeedPost =
@@ -35,7 +35,24 @@ contract ReadAppBskyFeed_Test is Test {
     }
 
     function test_readFeedPost_valid() public pure {
-        AppBsky.FeedPost memory post = AppBsky.readFeedPost(cborFeedPost);
-        require(keccak256(abi.encode(post.text)) == keccak256(abi.encode(expectedFeedPostText)), "text mismatch");
+        string memory post = AppBsky.readFeedPost(cborFeedPost);
+        require(keccak256(abi.encode(post)) == keccak256(abi.encode(expectedFeedPostText)), "text mismatch");
+    }
+
+    bytes private constant cborFeedRepost =
+        hex"a3652474797065746170702e62736b792e666565642e7265706f7374677375626a656374a263636964783b62616679726569676370786b707a6176717963333274757375376e356f61366f6f71367766646e6b7167733275787268783770746834347077756d63757269784661743a2f2f6469643a706c633a61346c6234337665636361617a786a32747432626c616f772f6170702e62736b792e666565642e706f73742f336c62656f366f6f7567733276696372656174656441747818323032342d31312d32305431323a33383a31362e3232325a";
+
+    string private constant expectedFeedRepostCid = "bafyreigcpxkpzavqyc32tusu7n5oa6ooq6wfdnkqgs2uxrhx7pth44pwum";
+    string private constant expectedFeedRepostUri =
+        "at://did:plc:a4lb43veccaazxj2tt2blaow/app.bsky.feed.post/3lbeo6oougs2v";
+
+    function test_readFeedRepost_only() public pure {
+        AppBsky.readFeedRepost(cborFeedRepost);
+    }
+
+    function test_readFeedRepost() public pure {
+        ComAtprotoRepo.StrongRef memory repost = AppBsky.readFeedRepost(cborFeedRepost);
+        require(keccak256(abi.encode(repost.cid)) == keccak256(abi.encode(expectedFeedRepostCid)), "cid mismatch");
+        require(keccak256(abi.encode(repost.uri)) == keccak256(abi.encode(expectedFeedRepostUri)), "uri mismatch");
     }
 }
