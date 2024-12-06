@@ -2,11 +2,9 @@
 pragma solidity ^0.8.28;
 
 import {Test, console} from "forge-std/Test.sol";
-import "../src/repo/ReadCommit.sol";
 import "../src/repo/ReadTree.sol";
 
 using ReadCbor for bytes;
-using ReadCommit for bytes;
 using ReadCid for bytes;
 using ReadTree for bytes[];
 

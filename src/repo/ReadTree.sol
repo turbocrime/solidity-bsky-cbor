@@ -81,31 +81,43 @@ library MST {
         return keccak256(abi.encode(key1)) == keccak256(abi.encode(key2));
     }
 
-    // TODO: possibly accelerate searches with hasCid starting index
-    function hasCid(Tree memory tree, CidSha256 cid, uint startIdx) private pure returns (bool, uint) {
-        if (cid.isNull()) {
-            return (false, 0);
-        }
-        for (uint i = startIdx; i < tree.cids.length; i++) {
-            if (tree.cids[i] == cid) {
-                return (true, i);
+    function hasCid(Tree memory tree, CidSha256 cid, uint startIdx) private pure returns (bool found, uint foundIdx) {
+        assembly ("memory-safe") {
+            if cid {
+                let cids := mload(add(tree, 0x20)) // get tree.cids array pointer
+                let ptr := add(cids, 0x20) // pointer to first element
+                for { let i := startIdx } lt(i, mload(cids)) { i := add(i, 1) } {
+                    if eq(
+                        cid, // compare cid
+                        mload(add(ptr, shl(5, i))) // use shift left by 5 (equivalent to * 32) for offset
+                    ) {
+                        found := 1
+                        foundIdx := i
+                        break
+                    }
+                }
             }
         }
-        return (false, 0);
     }
 
-    // TODO: this could be much faster with assembly, every item in the array is a 32-byte word
-    function cat(CidSha256[] memory arr1, CidSha256[] memory arr2) private pure returns (CidSha256[] memory) {
-        CidSha256[] memory newArr = new CidSha256[](arr1.length + arr2.length);
+    function cat(CidSha256[] memory arr1, CidSha256[] memory arr2) private pure returns (CidSha256[] memory arrNew) {
+        arrNew = new CidSha256[](arr1.length + arr2.length);
 
-        for (uint i = 0; i < arr1.length; i++) {
-            newArr[i] = arr1[i];
-        }
-        for (uint i = 0; i < arr2.length; i++) {
-            newArr[arr1.length + i] = arr2[i];
-        }
+        assembly ("memory-safe") {
+            // Get the data pointers
+            let ptr1 := add(arr1, 0x20)
+            let ptr2 := add(arr2, 0x20)
+            let ptrNew := add(arrNew, 0x20)
 
-        return newArr;
+            // Copy arr1
+            let words := mul(mload(arr1), 0x20) // arr1.length * 32 bytes
+            for { let i := 0 } lt(i, words) { i := add(i, 0x20) } { mstore(add(ptrNew, i), mload(add(ptr1, i))) }
+
+            // Copy arr2
+            ptrNew := add(ptrNew, words) // Start after size of arr1
+            words := mul(mload(arr2), 0x20) // arr2.length * 32 bytes
+            for { let i := 0 } lt(i, words) { i := add(i, 0x20) } { mstore(add(ptrNew, i), mload(add(ptr2, i))) }
+        }
     }
 
     // TODO: assembly, consider popping from the end for speed.
