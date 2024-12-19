@@ -1,0 +1,11 @@
+{
+  "Integer": "235",
+  "NInt256_max": "914",
+  "NInt256_middle": "235",
+  "NInt256_multi": "816",
+  "NInt256_single": "816",
+  "UInt256_max": "770",
+  "UInt256_middle": "672",
+  "UInt256_multi": "672",
+  "UInt256_single": "672"
+}
